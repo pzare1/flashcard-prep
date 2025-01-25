@@ -114,7 +114,7 @@ export default function Home() {
           </div>
         ) : (
           <div className="max-w-4xl mx-auto bg-gray-800/50 backdrop-blur-sm rounded-xl p-8 border border-purple-900/20">
-            <div className="flex items-center space-x-4 mb-8">
+            <div className="flex items-center space-x-4 mb-8 space-y-10">
               <button 
                 onClick={() => {
                   setSelectedField("");
@@ -128,7 +128,7 @@ export default function Home() {
               <h2 className="text-2xl font-semibold text-white">{selectedField}</h2>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               {fields[selectedField as keyof typeof fields].subFields.map((subField) => (
                 <button
                   key={subField}
