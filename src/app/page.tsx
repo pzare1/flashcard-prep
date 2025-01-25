@@ -1,101 +1,174 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import { ChevronRight, Code, Stethoscope, Wrench, ChartBarBig, Building, Weight, Book, ArrowLeft } from "lucide-react";
+
+const fields = {
+  "Software Development": {
+    icon: Code,
+    subFields: ["Frontend Development", "Backend Development", "Mobile Development", "DevOps", "Cloud Computing", "System Design"]
+  },
+  "Data Science": {
+    icon: ChartBarBig,
+    subFields: ["Machine Learning", "Data Analysis", "Big Data", "AI Engineering", "Computer Vision", "NLP"]
+  },
+  "Healthcare": {
+    icon: Stethoscope,
+    subFields: ["Nursing", "Pharmacy", "Physical Therapy", "Medical Technology", "Healthcare Administration", "Public Health"]
+  },
+  "Engineering": {
+    icon: Wrench,
+    subFields: ["Mechanical Engineering", "Electrical Engineering", "Civil Engineering", "Chemical Engineering", "Aerospace Engineering", "Industrial Engineering"]
+  },
+  "Business": {
+    icon: Building,
+    subFields: ["Marketing", "Finance", "Management", "Human Resources", "Operations", "Entrepreneurship"]
+  },
+  "Legal": {
+    icon: Weight,
+    subFields: ["Corporate Law", "Criminal Law", "Civil Law", "International Law", "Patent Law", "Environmental Law"]
+  },
+  "Education": {
+    icon: Book,
+    subFields: ["K-12 Education", "Higher Education", "Special Education", "Educational Technology", "Curriculum Development", "Education Administration"]
+  }
+};
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [selectedField, setSelectedField] = useState("");
+  const [selectedSubField, setSelectedSubField] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  const handleStart = async () => {
+    if (selectedField && selectedSubField) {
+      setIsLoading(true);
+      try {
+        const response = await fetch("/api/generate-questions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            field: selectedField,
+            subField: selectedSubField,
+          }),
+        });
+
+        if (!response.ok) throw new Error("Failed to generate questions");
+
+        const questions = await response.json();
+        sessionStorage.setItem("questionSet", JSON.stringify(questions.map((q: any) => q._id)));
+        router.push(`/practice?field=${selectedField}&subfield=${selectedSubField}`);
+      } catch (error) {
+        console.error("Error:", error);
+        alert("Failed to generate questions. Please try again.");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  return (
+    <div className="min-h-screen pt-20 bg-gradient-to-b from-gray-900 to-gray-800">
+      <div className="container mx-auto px-4">
+        <div className="mb-16 pt-12 text-center">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="inline-block"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-purple-400 to-purple-600 text-transparent bg-clip-text mb-4">
+              PrepFlashcard
+            </h1>
+            <p className="text-gray-300 text-lg md:text-xl">
+              Master your next interview with AI-powered preparation
+            </p>
+          </motion.div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+        {!selectedField ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+            {Object.entries(fields).map(([field, { icon: Icon }]) => (
+              <motion.button
+                key={field}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                onClick={() => setSelectedField(field)}
+                className="group relative bg-gray-800/50 backdrop-blur-sm border border-purple-900/20 
+                         rounded-xl transition-all duration-300 hover:border-purple-500/50
+                         hover:bg-gray-800/80"
+              >
+                <div className="p-6 space-y-4">
+                  <div className="w-14 h-14 bg-purple-500/10 rounded-xl p-3 mb-4 mx-auto
+                               group-hover:bg-purple-500/20 transition-colors">
+                    <Icon className="w-full h-full text-purple-400" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-white text-center">{field}</h3>
+                  <p className="text-gray-400 text-sm text-center">
+                    {fields[field as keyof typeof fields].subFields.length} specializations
+                  </p>
+                </div>
+              </motion.button>
+            ))}
+          </div>
+        ) : (
+          <div className="max-w-4xl mx-auto bg-gray-800/50 backdrop-blur-sm rounded-xl p-8 border border-purple-900/20">
+            <div className="flex items-center space-x-4 mb-8">
+              <button 
+                onClick={() => {
+                  setSelectedField("");
+                  setSelectedSubField("");
+                }}
+                className="flex items-center text-purple-400 hover:text-purple-300 transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5 mr-2" />
+                Back
+              </button>
+              <h2 className="text-2xl font-semibold text-white">{selectedField}</h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {fields[selectedField as keyof typeof fields].subFields.map((subField) => (
+                <button
+                  key={subField}
+                  onClick={() => setSelectedSubField(subField)}
+                  className={`p-4 rounded-lg text-left transition-all duration-300
+                    ${selectedSubField === subField 
+                      ? 'bg-purple-500/20 border-2 border-purple-500 text-white' 
+                      : 'bg-gray-800/30 border border-purple-900/20 hover:border-purple-500/50 text-white'}`}
+                >
+                  {subField}
+                </button>
+              ))}
+            </div>
+
+            {selectedSubField && (
+              <div className="mt-8">
+                <button
+                  onClick={handleStart}
+                  disabled={isLoading}
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-lg p-4 
+                           flex items-center justify-center space-x-2 transition-colors
+                           disabled:bg-purple-600/50 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                      <span>Preparing Questions...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <span>Start Practice</span>
+                      <ChevronRight className="w-5 h-5" />
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
