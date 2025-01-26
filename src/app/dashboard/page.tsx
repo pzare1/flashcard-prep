@@ -93,7 +93,7 @@ export default function Dashboard() {
   }
 
   return (
-<div className="min-h-screen pt-20 bg-gradient-to-b from-slate-900 via-purple-900 to-slate-900 bg-fixed">
+    <div className="min-h-screen pt-20 bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900">
       <div className="container mx-auto px-4">
         <h1 className="text-3xl font-bold text-white mb-8">Your Dashboard</h1>
 
