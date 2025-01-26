@@ -1,6 +1,23 @@
-import mongoose, { Schema } from 'mongoose';
+import mongoose, { Schema, Document } from 'mongoose';
+
+export interface IQuestion extends Document {
+  userId: string;
+  field: string;
+  subField: string;
+  question: string;
+  answer: string;
+  difficulty: string;
+  createdAt: Date;
+  timesAnswered: number;
+  averageScore: number;
+}
 
 const QuestionSchema = new Schema({
+  userId: {
+    type: String,
+    required: true,
+    index: true
+  },
   field: {
     type: String,
     required: true,
@@ -24,10 +41,9 @@ const QuestionSchema = new Schema({
     enum: ['beginner', 'intermediate', 'advanced'],
     default: 'intermediate'
   },
-  userId: {
-    type: String,
-    required: true,
-    index: true
+  createdAt: {
+    type: Date,
+    default: Date.now
   },
   timesAnswered: {
     type: Number,
@@ -36,13 +52,7 @@ const QuestionSchema = new Schema({
   averageScore: {
     type: Number,
     default: 0
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
   }
 });
 
-const Question = mongoose.models.Question || mongoose.model('Question', QuestionSchema);
-
-export default Question;
+export default mongoose.models.Question || mongoose.model<IQuestion>('Question', QuestionSchema);

@@ -1,33 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Groq } from "groq-sdk";
 import { connectToDatabase } from "@/lib/mongodb";
-import Question from "../../../../models/question";
+import Question from "../..‍/../../../../models/question";
+import { auth } from "@clerk/nextjs/server";
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
-const getPromptByField = (field: string, subField: string) => {
-  const basePrompt = `Generate 10 interview questions and answers for ${field} focusing on ${subField}. 
-    Each question should have a detailed answer and difficulty level.`;
-
-  return `${basePrompt}
-    The response should be a valid JSON object with this exact structure:
-    {
-      "questions": [
-        {
-          "question": "Question text here",
-          "answer": "Answer text here",
-          "difficulty": "intermediate"
-        }
-      ]
-    }`;
-};
-
 export async function POST(request: NextRequest) {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { field, subField } = await request.json();
-    
     if (!field || !subField) {
       return NextResponse.json({ error: "Field and subField are required" }, { status: 400 });
     }
@@ -40,7 +28,8 @@ export async function POST(request: NextRequest) {
         },
         {
           role: "user",
-          content: getPromptByField(field, subField)
+          content: `Generate 10 interview questions and answers for ${field} focusing on ${subField}. 
+            Format as JSON: { "questions": [{ "question": "text", "answer": "text", "difficulty": "intermediate" }] }`
         }
       ],
       model: "mixtral-8x7b-32768",
@@ -49,17 +38,10 @@ export async function POST(request: NextRequest) {
     });
 
     const content = completion.choices[0]?.message?.content || "";
-    let response;
-    
-    try {
-      response = JSON.parse(content.trim());
-    } catch (e) {
-      console.error("JSON parsing error:", e);
-      return NextResponse.json({ error: "Invalid response format" }, { status: 500 });
-    }
+    const response = JSON.parse(content.trim());
 
     if (!response.questions || !Array.isArray(response.questions)) {
-      return NextResponse.json({ error: "Invalid question format" }, { status: 500 });
+      throw new Error("Invalid question format");
     }
 
     await connectToDatabase();
@@ -67,6 +49,7 @@ export async function POST(request: NextRequest) {
     const savedQuestions = await Promise.all(
       response.questions.map(async (q: any) => {
         const question = new Question({
+          userId,
           field,
           subField,
           question: q.question,
@@ -80,6 +63,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(savedQuestions);
   } catch (error: any) {
     console.error("Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message || "Failed to generate questions" }, 
+      { status: 500 }
+    );
   }
 }
