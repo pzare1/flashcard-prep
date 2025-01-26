@@ -19,7 +19,7 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en" suppressHydrationWarning>
-        <body className={`${inter.className} bg-background`}>
+        <body className={`${inter.className} bg-gray-900/90`}>
             <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800">
               <Navbar />
               <main>{children}</main>

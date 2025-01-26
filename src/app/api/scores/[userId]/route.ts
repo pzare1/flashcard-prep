@@ -15,6 +15,7 @@ export async function GET(
 
     await connectToDatabase();
     
+    // Get all questions with their scores
     const questions = await Question.find({ 
       userId,
       timesAnswered: { $gt: 0 } 
@@ -22,11 +23,38 @@ export async function GET(
     .sort({ createdAt: 1 })
     .lean();
 
-    const scoreData = questions.map(q => ({
-      date: new Date(q.createdAt).toLocaleDateString(),
-      score: q.averageScore,
-      field: q.field
-    }));
+    // Transform the data for the chart
+    const scoreData = questions.flatMap(q => {
+      // If question has individual scores, create a data point for each
+      if (q.scores && q.scores.length > 0) {
+        interface Score {
+            timestamp: number;
+            averageScore: number;
+            field: string;
+        }
+
+        interface QuestionWithScores {
+            scores: number[];
+            createdAt: Date | string;
+            field: string;
+        }
+
+                        return q.scores.map((score: number, index: number): Score => ({
+                            timestamp: new Date(q.createdAt).getTime() + (index * 1000 * 60), // Add minutes to spread out multiple scores
+                            averageScore: score,
+                            field: q.field
+                        }));
+      }
+      // Fallback to using averageScore if individual scores aren't available
+      return [{
+        timestamp: new Date(q.createdAt).getTime(),
+        averageScore: q.averageScore,
+        field: q.field
+      }];
+    });
+
+    // Sort by timestamp
+    scoreData.sort((a, b) => a.timestamp - b.timestamp);
 
     return NextResponse.json(scoreData);
   } catch (error) {

@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { QuestionHistory } from "@/components/QuestionHistory";
 
 interface Question {
   _id: string;
@@ -15,21 +16,22 @@ interface Question {
   difficulty: string;
   timesAnswered: number;
   averageScore: number;
+  scores: number[];
   createdAt: string;
 }
 
 interface ScoreData {
-  date: string;
-  score: number;
+  timestamp: string;
+  averageScore: number;
   field: string;
 }
 
 export default function Dashboard() {
   const { userId } = useAuth();
+  const [selectedField, setSelectedField] = useState<string>("All");
   const [questions, setQuestions] = useState<Question[]>([]);
   const [scoreData, setScoreData] = useState<ScoreData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedField, setSelectedField] = useState<string>("all");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -65,7 +67,22 @@ export default function Dashboard() {
     ? questions.reduce((acc, q) => acc + q.averageScore, 0) / questions.length 
     : 0;
 
-  const totalAnswered = questions.reduce((acc, q) => acc + q.timesAnswered, 0);
+  const totalCorrectAnswers = questions.reduce((acc, q) => {
+    return acc + (q.scores || []).filter(score => score >= 5).length;
+  }, 0);
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
+          <p className="text-gray-200">{`Time: ${new Date(label).toLocaleString()}`}</p>
+          <p className="text-purple-400">{`Average Score: ${payload[0].value.toFixed(1)}`}</p>
+          <p className="text-gray-300">{`Field: ${payload[0].payload.field}`}</p>
+        </div>
+      );
+    }
+    return null;
+  };
 
   if (loading) {
     return (
@@ -76,7 +93,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen pt-20 bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900">
+<div className="min-h-screen pt-20 bg-gradient-to-b from-slate-900 via-purple-900 to-slate-900 bg-fixed">
       <div className="container mx-auto px-4">
         <h1 className="text-3xl font-bold text-white mb-8">Your Dashboard</h1>
 
@@ -103,10 +120,10 @@ export default function Dashboard() {
 
           <Card className="bg-gray-800/50 backdrop-blur-sm border-purple-900/20">
             <CardHeader>
-              <CardTitle className="text-gray-200">Total Answers</CardTitle>
+              <CardTitle className="text-gray-200">Correct Answers (≥5/10)</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-4xl font-bold text-purple-400">{totalAnswered}</p>
+              <p className="text-4xl font-bold text-purple-400">{totalCorrectAnswers}</p>
             </CardContent>
           </Card>
         </div>
@@ -116,24 +133,30 @@ export default function Dashboard() {
             <CardTitle className="text-gray-200">Performance Over Time</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
+            <div className="h-[400px]">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={scoreData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis dataKey="date" stroke="#9CA3AF" />
-                  <YAxis stroke="#9CA3AF" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#1F2937",
-                      border: "1px solid #374151",
-                      borderRadius: "0.5rem",
-                    }}
+                  <XAxis 
+                    dataKey="timestamp" 
+                    stroke="#9CA3AF"
+                    tickFormatter={(timestamp) => new Date(timestamp).toLocaleDateString()}
                   />
+                  <YAxis 
+                    stroke="#9CA3AF"
+                    domain={[0, 10]}
+                    ticks={[0, 2, 4, 6, 8, 10]}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend />
                   <Line
                     type="monotone"
-                    dataKey="score"
+                    dataKey="averageScore"
+                    name="Average Score"
                     stroke="#8B5CF6"
                     strokeWidth={2}
+                    dot={{ fill: '#8B5CF6', r: 4 }}
+                    activeDot={{ r: 6, fill: '#A78BFA' }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -142,48 +165,17 @@ export default function Dashboard() {
         </Card>
 
         <Card className="bg-gray-800/50 backdrop-blur-sm border-purple-900/20">
-          <CardHeader>
-            <CardTitle className="text-gray-200">Your Question History</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="all" className="w-full">
-              <TabsList className="mb-4">
-                {fields.map(field => (
-                  <TabsTrigger
-                    key={field}
-                    value={field}
-                    onClick={() => setSelectedField(field)}
-                    className="capitalize"
-                  >
-                    {field}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-
-              <div className="space-y-4">
-                {filteredQuestions.map((question) => (
-                  <Card key={question._id} className="bg-gray-700/50">
-                    <CardContent className="p-4">
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-start">
-                          <h3 className="text-gray-200 font-medium">{question.question}</h3>
-                          <span className="text-sm text-gray-400 capitalize">
-                            {question.difficulty}
-                          </span>
-                        </div>
-                        <p className="text-gray-300">{question.answer}</p>
-                        <div className="flex justify-between text-sm text-gray-400">
-                          <span>Field: {question.field} - {question.subField}</span>
-                          <span>Average Score: {question.averageScore.toFixed(1)}/10</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </Tabs>
-          </CardContent>
-        </Card>
+  <CardHeader>
+    <CardTitle className="text-gray-200">Your Question History</CardTitle>
+  </CardHeader>
+  <CardContent>
+    <QuestionHistory 
+      questions={questions}
+      selectedField={selectedField}
+      onFieldChange={setSelectedField}
+    />
+  </CardContent>
+</Card>
       </div>
     </div>
   );

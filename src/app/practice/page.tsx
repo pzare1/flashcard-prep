@@ -161,7 +161,7 @@ export default function PracticePage() {
           <div className="mt-6 flex justify-center">
             <button
               onClick={handleNext}
-              className="bg-purple-600 mb-6 hover:bg-purple-700 text-white rounded-lg px-6 py-3 transition-colors"
+              className="bg-purple-500/20 border-2 border-purple-500 text-white mb-10 rounded-lg px-6 py-3 transition-colors"
             >
               Next Question
             </button>

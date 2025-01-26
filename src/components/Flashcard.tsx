@@ -95,11 +95,11 @@ export default function Flashcard({
                 value={userAnswer}
                 onChange={(e) => setUserAnswer(e.target.value)}
                 placeholder="Type your answer here..."
-                className="w-full h-32 bg-gray-700 text-gray-200 rounded-lg p-4 border border-gray-600 focus:border-purple-500 focus:ring-2 focus:ring-purple-500"
+                className="w-full h-32 bg-gray-700 text-gray-200 rounded-lg p-4 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 "
               />
               <button
                 onClick={handleSubmit}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-gray-200 rounded-lg p-4 font-medium transition-all flex items-center justify-center gap-2 group"
+                className="w-full bg-purple-500/20 border-2 border-purple-500 text-white rounded-lg p-4 font-medium transition-all flex items-center justify-center gap-2 group"
               >
                 Submit Answer
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -128,7 +128,7 @@ export default function Flashcard({
               {onNext && (
                 <button
                   onClick={onNext}
-                  className="w-full bg-purple-600 hover:bg-purple-700 text-gray-200 rounded-lg p-4 font-medium transition-all flex items-center justify-center gap-2 group"
+                  className="w-full bg-purple-500/20 border-2 border-purple-500 text-white rounded-lg p-4 font-medium transition-all flex items-center justify-center gap-2 group"
                 >
                   Next Question
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
