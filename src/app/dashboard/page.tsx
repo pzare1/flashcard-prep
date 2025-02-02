@@ -1,11 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { QuestionHistory } from "@/components/QuestionHistory";
+import { motion, AnimatePresence } from "framer-motion";
+import { QuestionCard } from "@/components/QuestionCard";
+import { QuestionModal } from "@/components/modals/QuestionModal";
+import { 
+  Search, 
+  Filter, 
+  ArrowUpRight, 
+  Book, 
+  Award, 
+  Clock, 
+  BrainCircuit,
+  SlidersHorizontal 
+} from "lucide-react";
+import { Footer } from "@/components/Footer";
 
 interface Question {
   _id: string;
@@ -13,76 +24,116 @@ interface Question {
   subField: string;
   question: string;
   answer: string;
+  userAnswer?: string;
   difficulty: string;
-  timesAnswered: number;
-  averageScore: number;
-  scores: number[];
-  createdAt: string;
-}
-
-interface ScoreData {
-  timestamp: string;
-  averageScore: number;
-  field: string;
+  score?: number;
+  notes?: Array<{
+    id: string;
+    content: string;
+    createdAt: Date;
+  }>;
+  createdAt: Date;
+  lastReviewedAt?: Date;
 }
 
 export default function Dashboard() {
   const { userId } = useAuth();
-  const [selectedField, setSelectedField] = useState<string>("All");
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [scoreData, setScoreData] = useState<ScoreData[]>([]);
+  const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedField, setSelectedField] = useState<string>("all");
+  const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("date");
   const [loading, setLoading] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchQuestions = async () => {
       if (!userId) return;
-      
       try {
-        const [questionsRes, scoresRes] = await Promise.all([
-          fetch(`/api/questions/user/${userId}`),
-          fetch(`/api/scores/${userId}`)
-        ]);
-
-        const questionsData = await questionsRes.json();
-        const scoresData = await scoresRes.json();
-
-        setQuestions(questionsData);
-        setScoreData(scoresData);
+        const response = await fetch(`/api/questions/user/${userId}`);
+        const data = await response.json();
+        setQuestions(data);
       } catch (error) {
-        console.error("Error fetching dashboard data:", error);
+        console.error("Error fetching questions:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
+    fetchQuestions();
   }, [userId]);
 
+  const handleSaveQuestion = async (questionId: string, data: any) => {
+    try {
+      const response = await fetch(`/api/questions/${questionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...data,
+          lastReviewedAt: new Date()
+        }),
+      });
+
+      if (response.ok) {
+        const updatedQuestion = await response.json();
+        setQuestions(questions.map(q => 
+          q._id === questionId ? { ...q, ...updatedQuestion } : q
+        ));
+      }
+    } catch (error) {
+      console.error("Error updating question:", error);
+    }
+  };
+
+  const openQuestionModal = (questionId: string) => {
+    const question = questions.find(q => q._id === questionId);
+    if (question) {
+      setSelectedQuestion(question);
+      setIsModalOpen(true);
+    }
+  };
+
   const fields = ["all", ...new Set(questions.map(q => q.field))];
-  const filteredQuestions = selectedField === "all" 
-    ? questions 
-    : questions.filter(q => q.field === selectedField);
+  const difficulties = ["all", "beginner", "intermediate", "advanced"];
+
+  const getReviewStatus = (question: Question) => {
+    if (!question.lastReviewedAt) return "Not reviewed";
+    const daysSinceReview = Math.floor(
+      (new Date().getTime() - new Date(question.lastReviewedAt).getTime()) / (1000 * 60 * 60 * 24)
+    );
+    if (daysSinceReview < 1) return "Reviewed today";
+    if (daysSinceReview === 1) return "Reviewed yesterday";
+    return `Reviewed ${daysSinceReview} days ago`;
+  };
+
+  const filteredAndSortedQuestions = questions
+    .filter(q => {
+      const matchesSearch = q.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          q.answer.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesField = selectedField === "all" || q.field === selectedField;
+      const matchesDifficulty = selectedDifficulty === "all" || q.difficulty === selectedDifficulty;
+      return matchesSearch && matchesField && matchesDifficulty;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "score":
+          return (b.score || 0) - (a.score || 0);
+        case "difficulty":
+          return a.difficulty.localeCompare(b.difficulty);
+        case "date":
+        default:
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+    });
 
   const averageScore = questions.length 
-    ? questions.reduce((acc, q) => acc + q.averageScore, 0) / questions.length 
+    ? questions.reduce((acc, q) => acc + (q.score || 0), 0) / questions.length 
     : 0;
 
-  const totalCorrectAnswers = questions.reduce((acc, q) => {
-    return acc + (q.scores || []).filter(score => score >= 5).length;
-  }, 0);
-
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-          <p className="text-gray-200">{`Time: ${new Date(label).toLocaleString()}`}</p>
-          <p className="text-purple-400">{`Average Score: ${payload[0].value.toFixed(1)}`}</p>
-          <p className="text-gray-300">{`Field: ${payload[0].payload.field}`}</p>
-        </div>
-      );
-    }
-    return null;
-  };
+  const totalReviewed = questions.filter(q => q.lastReviewedAt).length;
+  const totalNotes = questions.reduce((acc, q) => acc + (q.notes?.length || 0), 0);
 
   if (loading) {
     return (
@@ -93,90 +144,241 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen pt-20 bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900">
+    <div className="min-h-screen pt-20 bg-gradient-to-b bg-gray-900/90">
       <div className="container mx-auto px-4">
-        <h1 className="text-3xl font-bold text-white mb-8">Your Dashboard</h1>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50"
+          >
+            <div className="flex items-center justify-between">
+              <BrainCircuit className="w-8 h-8 text-purple-400" />
+              <span className="text-xs text-gray-400">Average Score</span>
+            </div>
+            <div className="mt-4">
+              <span className="text-3xl font-bold text-white">{averageScore.toFixed(1)}</span>
+              <span className="text-gray-400">/10</span>
+            </div>
+          </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="bg-gray-800/50 backdrop-blur-sm border-purple-900/20">
-            <CardHeader>
-              <CardTitle className="text-gray-200">Average Score</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-4xl font-bold text-purple-400">
-                {averageScore.toFixed(1)}/10
-              </p>
-            </CardContent>
-          </Card>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50"
+          >
+            <div className="flex items-center justify-between">
+              <Book className="w-8 h-8 text-indigo-400" />
+              <span className="text-xs text-gray-400">Total Questions</span>
+            </div>
+            <div className="mt-4">
+              <span className="text-3xl font-bold text-white">{questions.length}</span>
+            </div>
+          </motion.div>
 
-          <Card className="bg-gray-800/50 backdrop-blur-sm border-purple-900/20">
-            <CardHeader>
-              <CardTitle className="text-gray-200">Questions Practiced</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-4xl font-bold text-purple-400">{questions.length}</p>
-            </CardContent>
-          </Card>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50"
+          >
+            <div className="flex items-center justify-between">
+              <Clock className="w-8 h-8 text-blue-400" />
+              <span className="text-xs text-gray-400">Questions Reviewed</span>
+            </div>
+            <div className="mt-4">
+              <span className="text-3xl font-bold text-white">{totalReviewed}</span>
+            </div>
+          </motion.div>
 
-          <Card className="bg-gray-800/50 backdrop-blur-sm border-purple-900/20">
-            <CardHeader>
-              <CardTitle className="text-gray-200">Correct Answers (≥5/10)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-4xl font-bold text-purple-400">{totalCorrectAnswers}</p>
-            </CardContent>
-          </Card>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50"
+          >
+            <div className="flex items-center justify-between">
+              <Award className="w-8 h-8 text-green-400" />
+              <span className="text-xs text-gray-400">Total Notes</span>
+            </div>
+            <div className="mt-4">
+              <span className="text-3xl font-bold text-white">{totalNotes}</span>
+            </div>
+          </motion.div>
         </div>
 
-        <Card className="bg-gray-800/50 backdrop-blur-sm border-purple-900/20 mb-8">
-          <CardHeader>
-            <CardTitle className="text-gray-200">Performance Over Time</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[400px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={scoreData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis 
-                    dataKey="timestamp" 
-                    stroke="#9CA3AF"
-                    tickFormatter={(timestamp) => new Date(timestamp).toLocaleDateString()}
-                  />
-                  <YAxis 
-                    stroke="#9CA3AF"
-                    domain={[0, 10]}
-                    ticks={[0, 2, 4, 6, 8, 10]}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="averageScore"
-                    name="Average Score"
-                    stroke="#8B5CF6"
-                    strokeWidth={2}
-                    dot={{ fill: '#8B5CF6', r: 4 }}
-                    activeDot={{ r: 6, fill: '#A78BFA' }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50 mb-8">
+          <h3 className="text-lg font-medium text-white mb-4">Performance Over Time</h3>
+          <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={questions.map(q => ({
+                date: new Date(q.createdAt).toLocaleDateString(),
+                score: q.score || 0
+              }))}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <XAxis dataKey="date" stroke="#9CA3AF" />
+                <YAxis stroke="#9CA3AF" domain={[0, 10]} />
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: "#1F2937",
+                    border: "1px solid #374151",
+                    borderRadius: "0.5rem"
+                  }}
+                />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="score"
+                  name="Score"
+                  stroke="#8B5CF6"
+                  strokeWidth={2}
+                  dot={{ fill: "#8B5CF6", r: 4 }}
+                  activeDot={{ r: 6, fill: "#A78BFA" }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
 
-        <Card className="bg-gray-800/50 backdrop-blur-sm border-purple-900/20">
-  <CardHeader>
-    <CardTitle className="text-gray-200">Your Question History</CardTitle>
-  </CardHeader>
-  <CardContent>
-    <QuestionHistory 
-      questions={questions}
-      selectedField={selectedField}
-      onFieldChange={setSelectedField}
-    />
-  </CardContent>
-</Card>
+        <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+            <h3 className="text-lg font-medium text-white">Question History</h3>
+            
+            <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+              <div className="relative flex-1 md:flex-none">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Search questions..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full md:w-64 bg-gray-700/50 text-gray-200 rounded-lg pl-10 pr-4 py-2 
+                           border border-gray-600 focus:border-purple-500 focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-700/50 rounded-lg border border-gray-600
+                         hover:border-purple-500 transition-colors"
+              >
+                <SlidersHorizontal className="w-4 h-4 text-gray-400" />
+                <span className="text-gray-300">Filters</span>
+              </button>
+            </div>
+          </div>
+
+          <AnimatePresence>
+            {showFilters && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mb-6"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-700/30 rounded-lg">
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-2">Field</label>
+                    <select
+                      value={selectedField}
+                      onChange={(e) => setSelectedField(e.target.value)}
+                      className="w-full bg-gray-700/50 text-gray-200 rounded-lg p-2 
+                               border border-gray-600 focus:border-purple-500 focus:ring-2 focus:ring-purple-500"
+                    >
+                      {fields.map(field => (
+                        <option key={field} value={field} className="capitalize">
+                          {field}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-2">Difficulty</label>
+                    <select
+                      value={selectedDifficulty}
+                      onChange={(e) => setSelectedDifficulty(e.target.value)}
+                      className="w-full bg-gray-700/50 text-gray-200 rounded-lg p-2 
+                               border border-gray-600 focus:border-purple-500 focus:ring-2 focus:ring-purple-500"
+                    >
+                      {difficulties.map(difficulty => (
+                        <option key={difficulty} value={difficulty} className="capitalize">
+                          {difficulty}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-2">Sort By</label>
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value)}
+                      className="w-full bg-gray-700/50 text-gray-200 rounded-lg p-2 
+                               border border-gray-600 focus:border-purple-500 focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="date">Date</option>
+                      <option value="score">Score</option>
+                      <option value="difficulty">Difficulty</option>
+                    </select>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredAndSortedQuestions.map((question) => (
+              <QuestionCard
+                key={question._id}
+                question={question}
+                onOpen={openQuestionModal}
+              />
+            ))}
+          </div>
+        </div>
       </div>
+      {selectedQuestion && (
+        <QuestionModal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedQuestion(null);
+          }}
+          question={selectedQuestion}
+          onSave={handleSaveQuestion}
+        />
+      )}
+
+      {questions.length === 0 && !loading && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center py-12"
+        >
+          <Book className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+          <h3 className="text-xl font-medium text-gray-300 mb-2">No Questions Yet</h3>
+          <p className="text-gray-400">
+            Start practicing to build your question history!
+          </p>
+        </motion.div>
+      )}
+
+      {filteredAndSortedQuestions.length === 0 && questions.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center py-12"
+        >
+          <Search className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+          <h3 className="text-xl font-medium text-gray-300 mb-2">No Results Found</h3>
+          <p className="text-gray-400">
+            Try adjusting your search or filters
+          </p>
+        </motion.div>
+      )}
+        <Footer />
     </div>
   );
 }
