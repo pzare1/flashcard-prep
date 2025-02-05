@@ -5,17 +5,17 @@ import { auth } from "@clerk/nextjs/server";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { userId: string } }  // Correct type definition
+  context: { params: { userId: string } }
 ) {
   try {
-    const { userId } = await auth();
-    if (!userId || userId !== params.userId) {  // Updated to use params directly
+    const { userId: authenticatedUserId } = await auth();
+    if (!authenticatedUserId || authenticatedUserId !== context.params.userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     await connectToDatabase();
     
-    const questions = await Question.find({ userId })
+    const questions = await Question.find({ userId: authenticatedUserId })
       .sort({ createdAt: -1 })
       .lean();
 
