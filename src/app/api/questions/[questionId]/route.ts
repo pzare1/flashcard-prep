@@ -5,7 +5,7 @@ import { auth } from "@clerk/nextjs/server";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { questionId: string } }
+  { params }: { params: Promise<{ questionId: string }> }
 ) {
   try {
     const { userId } = await auth();
@@ -16,9 +16,11 @@ export async function PATCH(
     const data = await request.json();
     await connectToDatabase();
 
+    const { questionId } = await params;  // await the params
+
     // Find the question and verify ownership
     const question = await Question.findOne({
-      _id: params.questionId,
+      _id: questionId,
       userId: userId
     });
 

@@ -3,45 +3,48 @@ import { connectToDatabase } from "@/lib/mongodb";
 import Question from "../../../../../models/question";
 import { auth } from "@clerk/nextjs/server";
 
+// Move interfaces outside of the request handler for cleaner code
+interface Score {
+  score: number;
+}
+
+interface QuestionFromDB {
+  _id: string;
+  field: string;
+  subField: string;
+  scores: Score[];
+  createdAt: Date;
+  lastReviewedAt: Date;
+}
+
+interface PerformanceData {
+  _id: string;
+  field: string;
+  subField: string;
+  averageScore: number;
+  scores: Score[];
+  createdAt: Date;
+  lastReviewedAt: Date;
+}
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
-    const { userId } = await auth();
-    if (!userId || userId !== params.userId) {
+    const { userId } = await params;  // await the params
+    const { userId: authenticatedUserId } = await auth();
+    
+    if (!authenticatedUserId || authenticatedUserId !== userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     await connectToDatabase();
 
-    const questions = (await Question.find({ userId })
+    const questions = (await Question.find({ userId: authenticatedUserId })
       .select('scores field subField createdAt lastReviewedAt')
       .sort('createdAt')
       .lean()) as unknown as QuestionFromDB[];
-
-    interface Score {
-      score: number;
-    }
-
-    interface QuestionFromDB {
-      _id: string;
-      field: string;
-      subField: string;
-      scores: Score[];
-      createdAt: Date;
-      lastReviewedAt: Date;
-    }
-
-    interface PerformanceData {
-      _id: string;
-      field: string;
-      subField: string;
-      averageScore: number;
-      scores: Score[];
-      createdAt: Date;
-      lastReviewedAt: Date;
-    }
 
     const performanceData: PerformanceData[] = questions.map((question: QuestionFromDB) => ({
       _id: question._id,
