@@ -68,8 +68,6 @@ export async function POST(request: NextRequest) {
           answer: q.answer,
           difficulty: mapDifficulty(q.difficulty),
           timesAnswered: 0,
-          averageScore: 0,
-          scores: []
         });
         return await question.save();
       })

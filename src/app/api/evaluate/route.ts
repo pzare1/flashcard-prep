@@ -44,8 +44,8 @@ export async function POST(request: NextRequest) {
       max_tokens: 10,
     });
 
-    const score = parseFloat(completion.choices[0]?.message?.content || "0");
-
+    const score = parseFloat(completion.choices[0]?.message?.content?.trim() || "0");
+    
     return NextResponse.json({ score });
   } catch (error) {
     console.error("Error evaluating answer:", error);

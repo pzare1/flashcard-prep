@@ -2,21 +2,17 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { motion, AnimatePresence } from "framer-motion";
-import { QuestionCard } from "@/components/QuestionCard";
 import { QuestionModal } from "@/components/modals/QuestionModal";
 import { 
   Search, 
-  Filter, 
-  ArrowUpRight, 
   Book, 
   Award, 
   Clock, 
-  BrainCircuit,
   SlidersHorizontal 
 } from "lucide-react";
 import { Footer } from "@/components/Footer";
+import QuestionCard from "@/components/QuestionCard";
 
 interface Question {
   _id: string;
@@ -26,7 +22,6 @@ interface Question {
   answer: string;
   userAnswer?: string;
   difficulty: string;
-  score?: number;
   notes?: Array<{
     id: string;
     content: string;
@@ -34,6 +29,10 @@ interface Question {
   }>;
   createdAt: Date;
   lastReviewedAt?: Date;
+  attempts?: Array<{
+    score: number;
+    createdAt: Date;
+  }>;
 }
 
 export default function Dashboard() {
@@ -98,6 +97,30 @@ export default function Dashboard() {
   const fields = ["all", ...new Set(questions.map(q => q.field))];
   const difficulties = ["all", "beginner", "intermediate", "advanced"];
 
+  const filteredAndSortedQuestions = questions
+    .filter(q => {
+      const matchesSearch = q.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          q.field.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          q.subField.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesField = selectedField === "all" || q.field === selectedField;
+      const matchesDifficulty = selectedDifficulty === "all" || q.difficulty === selectedDifficulty;
+      return matchesSearch && matchesField && matchesDifficulty;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "date":
+          const dateA = a.lastReviewedAt ? new Date(a.lastReviewedAt) : new Date(0);
+          const dateB = b.lastReviewedAt ? new Date(b.lastReviewedAt) : new Date(0);
+          return dateB.getTime() - dateA.getTime();
+        case "difficulty":
+          const difficultyOrder = { beginner: 1, intermediate: 2, advanced: 3 };
+          return (difficultyOrder[a.difficulty as keyof typeof difficultyOrder] || 0) - 
+                 (difficultyOrder[b.difficulty as keyof typeof difficultyOrder] || 0);
+        default:
+          return 0;
+      }
+    });
+
   const getReviewStatus = (question: Question) => {
     if (!question.lastReviewedAt) return "Not reviewed";
     const daysSinceReview = Math.floor(
@@ -108,29 +131,6 @@ export default function Dashboard() {
     return `Reviewed ${daysSinceReview} days ago`;
   };
 
-  const filteredAndSortedQuestions = questions
-    .filter(q => {
-      const matchesSearch = q.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          q.answer.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesField = selectedField === "all" || q.field === selectedField;
-      const matchesDifficulty = selectedDifficulty === "all" || q.difficulty === selectedDifficulty;
-      return matchesSearch && matchesField && matchesDifficulty;
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case "score":
-          return (b.score || 0) - (a.score || 0);
-        case "difficulty":
-          return a.difficulty.localeCompare(b.difficulty);
-        case "date":
-        default:
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      }
-    });
-
-  const averageScore = questions.length 
-    ? questions.reduce((acc, q) => acc + (q.score || 0), 0) / questions.length 
-    : 0;
 
   const totalReviewed = questions.filter(q => q.lastReviewedAt).length;
   const totalNotes = questions.reduce((acc, q) => acc + (q.notes?.length || 0), 0);
@@ -153,12 +153,17 @@ export default function Dashboard() {
             className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50"
           >
             <div className="flex items-center justify-between">
-              <BrainCircuit className="w-8 h-8 text-purple-400" />
-              <span className="text-xs text-gray-400">Average Score</span>
+              <Award className="w-8 h-8 text-yellow-400" />
+              <span className="text-xs text-gray-400">Total Score</span>
             </div>
             <div className="mt-4">
-              <span className="text-3xl font-bold text-white">{averageScore.toFixed(1)}</span>
-              <span className="text-gray-400">/10</span>
+              <span className="text-3xl font-bold text-white">
+                {questions.reduce((total, q) => {
+                  if (!q.attempts || q.attempts.length === 0) return total;
+                  const questionScore = q.attempts.reduce((sum, attempt) => sum + attempt.score, 0) / q.attempts.length;
+                  return total + questionScore;
+                }, 0).toFixed(0)}
+              </span>
             </div>
           </motion.div>
 
@@ -206,39 +211,6 @@ export default function Dashboard() {
               <span className="text-3xl font-bold text-white">{totalNotes}</span>
             </div>
           </motion.div>
-        </div>
-
-        <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50 mb-8">
-          <h3 className="text-lg font-medium text-white mb-4">Performance Over Time</h3>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={questions.map(q => ({
-                date: new Date(q.createdAt).toLocaleDateString(),
-                score: q.score || 0
-              }))}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis dataKey="date" stroke="#9CA3AF" />
-                <YAxis stroke="#9CA3AF" domain={[0, 10]} />
-                <Tooltip 
-                  contentStyle={{
-                    backgroundColor: "#1F2937",
-                    border: "1px solid #374151",
-                    borderRadius: "0.5rem"
-                  }}
-                />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="score"
-                  name="Score"
-                  stroke="#8B5CF6"
-                  strokeWidth={2}
-                  dot={{ fill: "#8B5CF6", r: 4 }}
-                  activeDot={{ r: 6, fill: "#A78BFA" }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
         </div>
 
         <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50">
@@ -319,7 +291,6 @@ export default function Dashboard() {
                                border border-gray-600 focus:border-purple-500 focus:ring-2 focus:ring-purple-500"
                     >
                       <option value="date">Date</option>
-                      <option value="score">Score</option>
                       <option value="difficulty">Difficulty</option>
                     </select>
                   </div>
@@ -327,9 +298,8 @@ export default function Dashboard() {
               </motion.div>
             )}
           </AnimatePresence>
-
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredAndSortedQuestions.map((question) => (
+            {filteredAndSortedQuestions.map((question: any) => (
               <QuestionCard
                 key={question._id}
                 question={question}
@@ -346,7 +316,7 @@ export default function Dashboard() {
             setIsModalOpen(false);
             setSelectedQuestion(null);
           }}
-          question={selectedQuestion}
+          question={selectedQuestion as any}
           onSave={handleSaveQuestion}
         />
       )}

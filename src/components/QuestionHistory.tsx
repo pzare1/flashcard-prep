@@ -9,14 +9,13 @@ interface Question {
   answer: string;
   field: string;
   subField: string;
-  averageScore: number;
   difficulty: string;
   timesAnswered: number;
 }
 
 interface QuestionCardProps extends Question {}
 
-const QuestionCard = ({ question, answer, field, subField, averageScore, difficulty, timesAnswered }: QuestionCardProps) => {
+const QuestionCard = ({ question, answer, field, subField, difficulty, timesAnswered }: QuestionCardProps) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -30,18 +29,6 @@ const QuestionCard = ({ question, answer, field, subField, averageScore, difficu
             <h3 className="text-lg font-medium text-gray-100">
               {question}
             </h3>
-            <div className="flex items-center gap-3">
-              <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${
-                averageScore >= 7 ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
-                averageScore >= 5 ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
-                'bg-red-500/20 text-red-400 border border-red-500/30'
-              }`}>
-                {averageScore.toFixed(1)}/10
-              </span>
-              <span className="px-3 py-1.5 rounded-full text-sm font-medium bg-purple-500/10 text-purple-400 border border-purple-500/30">
-                {difficulty}
-              </span>
-            </div>
           </div>
 
           <p className="text-gray-300 text-sm leading-relaxed">
