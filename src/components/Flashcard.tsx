@@ -1,6 +1,8 @@
+"use client"
+
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Check, X, ArrowRight } from "lucide-react";
+import { Check, X, ArrowRight, Loader2 } from "lucide-react";
 
 interface FlashcardProps {
   question: string;
@@ -9,7 +11,7 @@ interface FlashcardProps {
   subCategory: string;
   questionNumber: number;
   totalQuestions: number;
-  onSubmit: (answer: string) => void;
+  onSubmit: (answer: string) => Promise<void>;
   isRevealed: boolean;
   feedbackScore?: number;
   onNext?: () => void;
@@ -25,14 +27,21 @@ export default function Flashcard({
   onNext
 }: FlashcardProps) {
   const [userAnswer, setUserAnswer] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     setUserAnswer("");
+    setIsSubmitting(false);
   }, [questionNumber]);
 
-  const handleSubmit = () => {
-    if (userAnswer.trim()) {
-      onSubmit(userAnswer);
+  const handleSubmit = async () => {
+    if (userAnswer.trim() && !isSubmitting) {
+      setIsSubmitting(true);
+      try {
+        await onSubmit(userAnswer);
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -95,14 +104,26 @@ export default function Flashcard({
                 value={userAnswer}
                 onChange={(e) => setUserAnswer(e.target.value)}
                 placeholder="Type your answer here..."
-                className="w-full h-32 bg-gray-700 text-gray-200 rounded-lg p-4 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 "
+                className="w-full h-32 bg-gray-700 text-gray-200 rounded-lg p-4 focus:border-purple-500 focus:ring-2 focus:ring-purple-500"
+                disabled={isSubmitting}
               />
               <button
                 onClick={handleSubmit}
-                className="w-full bg-purple-500/20 border-2 border-purple-500 text-white rounded-lg p-4 font-medium transition-all flex items-center justify-center gap-2 group"
+                disabled={isSubmitting || !userAnswer.trim()}
+                className={`w-full bg-purple-500/20 border-2 border-purple-500 text-white rounded-lg p-4 font-medium transition-all flex items-center justify-center gap-2 group
+                  ${isSubmitting ? 'opacity-70 cursor-not-allowed' : 'hover:bg-purple-500/30'}`}
               >
-                Submit Answer
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Evaluating...
+                  </>
+                ) : (
+                  <>
+                    Submit Answer
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </>
+                )}
               </button>
             </motion.div>
           ) : (

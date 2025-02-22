@@ -244,7 +244,7 @@ const fields = {
   }
 };
 
-const questionCounts = [5, 10, 20, 40] as const;
+const questionCounts = [5, 10] as const;
 type QuestionCount = typeof questionCounts[number];
 
 const containerVariants = {

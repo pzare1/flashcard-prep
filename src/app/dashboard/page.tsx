@@ -27,6 +27,12 @@ interface Question {
   userAnswer?: string;
   difficulty: string;
   score?: number;
+  attempts?: Array<{
+    answer: string;
+    score: number;
+    timestamp: Date;
+    _id: string;
+  }>;
   notes?: Array<{
     id: string;
     content: string;
@@ -129,7 +135,15 @@ export default function Dashboard() {
     });
 
   const averageScore = questions.length 
-    ? questions.reduce((acc, q) => acc + (q.score || 0), 0) / questions.length 
+    ? questions
+        .flatMap(q => q.attempts || [])
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, 20)
+        .reduce((acc, attempt) => acc + (attempt.score || 0), 0) / 
+        Math.min(
+          questions.flatMap(q => q.attempts || []).length,
+          20
+        ) 
     : 0;
 
   const totalReviewed = questions.filter(q => q.lastReviewedAt).length;
@@ -212,12 +226,23 @@ export default function Dashboard() {
           <h3 className="text-lg font-medium text-white mb-4">Performance Over Time</h3>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={questions.map(q => ({
-                date: new Date(q.createdAt).toLocaleDateString(),
-                score: q.score || 0
-              }))}>
+              <LineChart data={questions
+                .flatMap(q => (q.attempts || []).map(attempt => ({
+                  date: new Date(attempt.timestamp).toLocaleDateString(),
+                  score: attempt.score
+                })))
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .slice(0, 20)
+                .reverse() // Reverse to show oldest to newest
+              }>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis dataKey="date" stroke="#9CA3AF" />
+                <XAxis 
+                  dataKey="date" 
+                  stroke="#9CA3AF"
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                />
                 <YAxis stroke="#9CA3AF" domain={[0, 10]} />
                 <Tooltip 
                   contentStyle={{

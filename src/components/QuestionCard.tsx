@@ -73,32 +73,32 @@ export function QuestionCard({ question, onOpen }: QuestionCardProps) {
           </span>
         </div>
 
-        {/* Scores Section */}
+        {/* Updated Scores Section */}
         <div className="flex flex-wrap gap-2">
-          {/* Latest Score */}
+          {/* Latest Score with /10 format */}
           <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${
             latestScore >= 8 ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
             latestScore >= 5 ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
             'bg-red-500/20 text-red-400 border border-red-500/30'
           }`}>
             <TrendingUp className="w-3 h-3" />
-            <span>Latest: {latestScore.toFixed(1)}</span>
+            <span>Latest: {latestScore.toFixed(1)}/10</span>
           </div>
 
-          {/* Average Score - Only show if there are multiple attempts */}
+          {/* Average Score with /10 format */}
           {question.attempts && question.attempts.length > 1 && (
             <div className="flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium 
                           bg-purple-500/20 text-purple-300 border border-purple-500/30">
-              <span>Avg: {averageScore.toFixed(1)}</span>
+              <span>Avg: {averageScore.toFixed(1)}/10</span>
             </div>
           )}
 
-          {/* Best Score - Only show if it's different from latest */}
+          {/* Best Score with /10 format */}
           {bestScore > latestScore && (
             <div className="flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium 
                           bg-blue-500/20 text-blue-300 border border-blue-500/30">
               <Star className="w-3 h-3" />
-              <span>Best: {bestScore.toFixed(1)}</span>
+              <span>Best: {bestScore.toFixed(1)}/10</span>
             </div>
           )}
 

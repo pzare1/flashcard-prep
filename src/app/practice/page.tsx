@@ -23,6 +23,7 @@ function PracticeContent() {
   const [scores, setScores] = useState<number[]>([]);
   const [isRevealed, setIsRevealed] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [currentScore, setCurrentScore] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchQuestions = async () => {
@@ -54,19 +55,32 @@ function PracticeContent() {
         body: JSON.stringify({
           userAnswer: answer,
           correctAnswer: questions[currentIndex].answer,
+          questionId: questions[currentIndex]._id,
         }),
       });
 
-      const { score } = await response.json();
+      const data = await response.json();
       
-      setScores((prev) => [...prev, score]);
-      setIsRevealed(true);
+      if (!response.ok) {
+        console.error("Evaluation error:", data.error);
+        // Handle the error gracefully without throwing
+        return;
+      }
 
-      if (currentIndex === questions.length - 1) {
-        setIsComplete(true);
+      if (data.score !== undefined) {
+        setCurrentScore(data.score);
+        setScores((prev) => [...prev, data.score]);
+        setIsRevealed(true);
+
+        if (currentIndex === questions.length - 1) {
+          setIsComplete(true);
+        }
+      } else {
+        console.error("No score received in response");
       }
     } catch (error) {
       console.error("Error evaluating answer:", error);
+      // Handle the error gracefully
     }
   };
 
@@ -74,6 +88,7 @@ function PracticeContent() {
     if (currentIndex < questions.length - 1) {
       setCurrentIndex((prev) => prev + 1);
       setIsRevealed(false);
+      setCurrentScore(null);
     }
   };
 
@@ -146,7 +161,7 @@ function PracticeContent() {
               answer={questions[currentIndex].answer}
               onSubmit={handleAnswerSubmit}
               isRevealed={isRevealed}
-              feedbackScore={isRevealed ? scores[currentIndex] : undefined}
+              feedbackScore={currentScore ?? undefined}
               category={field || ''}
               subCategory={subfield || ''}
               questionNumber={currentIndex + 1}

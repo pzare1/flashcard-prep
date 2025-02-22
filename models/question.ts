@@ -7,7 +7,6 @@ export interface IQuestion extends Document {
   question: string;
   answer: string;
   userAnswer?: string;
-  score?: number;
   attempts: {
     answer: string;
     score: number;
@@ -21,6 +20,9 @@ export interface IQuestion extends Document {
   }[];
   createdAt: Date;
   lastReviewedAt?: Date;
+  scores: number[];
+  averageScore: number;
+  timesAnswered: number;
 }
 
 const QuestionSchema = new Schema({
@@ -50,9 +52,6 @@ const QuestionSchema = new Schema({
   userAnswer: {
     type: String
   },
-  score: {
-    type: Number
-  },
   
   attempts: [{
     answer: String,
@@ -81,26 +80,19 @@ const QuestionSchema = new Schema({
   },
   lastReviewedAt: {
     type: Date
+  },
+  scores: {
+    type: [Number],
+    default: []
+  },
+  averageScore: {
+    type: Number,
+    default: 0
+  },
+  timesAnswered: {
+    type: Number,
+    default: 0
   }
-});
-
-// Virtual for getting average score
-QuestionSchema.virtual('averageScore').get(function() {
-  if (!this.attempts || this.attempts.length === 0) return 0;
-  const sum = this.attempts.reduce((acc, curr) => acc + (curr.score || 0), 0);
-  return Number((sum / this.attempts.length).toFixed(1));
-});
-
-// Virtual for getting best score
-QuestionSchema.virtual('bestScore').get(function() {
-  if (!this.attempts || this.attempts.length === 0) return 0;
-  return Math.max(...this.attempts.map(a => a.score || 0));
-});
-
-// Virtual for getting latest score
-QuestionSchema.virtual('latestScore').get(function() {
-  if (!this.attempts || this.attempts.length === 0) return 0;
-  return this.attempts[this.attempts.length - 1].score;
 });
 
 export default mongoose.models.Question || mongoose.model<IQuestion>('Question', QuestionSchema);
