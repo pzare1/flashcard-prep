@@ -2,6 +2,8 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IQuestion extends Document {
   userId: string;
+  jobTitle: string;
+  jobDescription: string;
   field: string;
   subField: string;
   question: string;
@@ -30,6 +32,14 @@ const QuestionSchema = new Schema({
     type: String,
     required: true,
     index: true
+  },
+  jobTitle: {
+    type: String,
+    required: false
+  },
+  jobDescription: {
+    type: String,
+    required: false
   },
   field: {
     type: String,

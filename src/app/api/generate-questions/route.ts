@@ -27,9 +27,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { field, subField, count = 10 } = await request.json();
+    const { field, subField, count = 10, jobTitle, jobDescription } = await request.json();
     
+    const jobContext = jobTitle || jobDescription 
+      ? `Consider this job context:
+         Job Title: ${jobTitle}
+         Job Description: ${jobDescription}
+         Generate questions that are particularly relevant to this role.`
+      : '';
+
     const prompt = `Generate ${count} interview questions for ${field} focusing on ${subField}.
+      ${jobContext}
       Each question should have a detailed answer and difficulty level (beginner/intermediate/advanced).
       Format as JSON: {
         "questions": [{
@@ -38,7 +46,7 @@ export async function POST(request: NextRequest) {
           "difficulty": "beginner|intermediate|advanced"
         }]
       }
-      Ensure a mix of difficulty levels and comprehensive answers.`;
+      Ensure a mix of difficulty levels and comprehensive answers that align with the job requirements when provided.`;
 
     const completion = await groq.chat.completions.create({
       messages: [

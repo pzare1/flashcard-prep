@@ -276,6 +276,8 @@ export default function Home() {
   const [selectedField, setSelectedField] = useState("");
   const [selectedSubField, setSelectedSubField] = useState("");
   const [questionCount, setQuestionCount] = useState<QuestionCount>(10);
+  const [jobTitle, setJobTitle] = useState("");
+  const [jobDescription, setJobDescription] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -323,7 +325,9 @@ export default function Home() {
         body: JSON.stringify({
           field: selectedField,
           subField: selectedSubField,
-          count: questionCount
+          count: questionCount,
+          jobTitle: jobTitle.trim(),
+          jobDescription: jobDescription.trim()
         }),
       });
 
@@ -351,7 +355,7 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedField, selectedSubField, questionCount, isSignedIn, router]);
+  }, [selectedField, selectedSubField, questionCount, isSignedIn, router, jobTitle, jobDescription]);
 
   const handleFieldSelect = useCallback((field: string) => {
     setSelectedField(field);
@@ -488,6 +492,30 @@ export default function Home() {
                       </div>
                     </motion.div>
                   )}
+
+                  <div className="w-full space-y-4 mb-6">
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-2">Job Title</label>
+                      <input
+                        type="text"
+                        placeholder="Enter job title..."
+                        value={jobTitle}
+                        onChange={(e) => setJobTitle(e.target.value)}
+                        className="w-full bg-gray-700/50 text-gray-200 rounded-lg p-2 
+                                 border border-gray-600 focus:border-purple-500 focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-2">Job Description</label>
+                      <textarea
+                        placeholder="Paste job description..."
+                        value={jobDescription}
+                        onChange={(e) => setJobDescription(e.target.value)}
+                        className="w-full h-32 bg-gray-700/50 text-gray-200 rounded-lg p-2 
+                                 border border-gray-600 focus:border-purple-500 focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                  </div>
 
                   {error && (
                     <motion.div
