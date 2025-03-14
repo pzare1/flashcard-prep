@@ -244,7 +244,7 @@ const fields = {
   }
 };
 
-const questionCounts = [5, 10] as const;
+const questionCounts = [10] as const;
 type QuestionCount = typeof questionCounts[number];
 
 const containerVariants = {
@@ -307,15 +307,15 @@ export default function Home() {
 
   const handleStart = useCallback(async () => {
     if (!validateSelections()) return;
-
+  
     if (!isSignedIn) {
       setShowAuthModal(true);
       return;
     }
-
+  
     setIsLoading(true);
     setError(null);
-
+  
     try {
       const response = await fetch("/api/generate-questions", {
         method: "POST",
@@ -330,23 +330,32 @@ export default function Home() {
           jobDescription: jobDescription.trim()
         }),
       });
-
+  
       if (response.status === 401) {
         setShowAuthModal(true);
         return;
       }
-
+  
       if (!response.ok) {
         throw new Error(`Failed to generate questions (${response.status})`);
       }
-
+  
       const questions = await response.json();
       
       if (!Array.isArray(questions) || questions.length === 0) {
         throw new Error("Invalid response format");
       }
-
+      
+      // Verify that we received the correct number of questions
+      if (questions.length !== questionCount) {
+        console.error(`Expected ${questionCount} questions but received ${questions.length}`);
+        setError(`Received incorrect number of questions (${questions.length}/${questionCount}). Please try again.`);
+        setIsLoading(false);
+        return;
+      }
+  
       sessionStorage.setItem("questionSet", JSON.stringify(questions.map(q => q._id)));
+      sessionStorage.setItem("expectedQuestionCount", questionCount.toString());
       
       router.push(`/practice?field=${encodeURIComponent(selectedField)}&subfield=${encodeURIComponent(selectedSubField)}`);
     } catch (error) {
@@ -467,7 +476,6 @@ export default function Home() {
                       </motion.button>
                     ))}
                   </div>
-
                   {selectedSubField && (
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}

@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const field = searchParams.get("field");
     const subfield = searchParams.get("subfield");
+    const count = Number(searchParams.get("count")) || 10;
 
     if (!field || !subfield) {
       return NextResponse.json(
@@ -18,7 +19,6 @@ export async function GET(request: NextRequest) {
 
     await connectToDatabase();
 
-    // Fetch 10 random questions for the given field and subfield
     const questions = await Question.aggregate([
       { 
         $match: { 
@@ -26,8 +26,15 @@ export async function GET(request: NextRequest) {
           subField: subfield
         }
       },
-      { $sample: { size: 10 } }
+      { $sample: { size: count } }
     ]);
+
+    if (questions.length !== count) {
+      return NextResponse.json(
+        { error: `Not enough questions available (requested: ${count}, available: ${questions.length})` },
+        { status: 400 }
+      );
+    }
 
     return NextResponse.json(questions);
   } catch (error) {

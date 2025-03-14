@@ -62,6 +62,7 @@ function PracticeContent() {
   const searchParams = useSearchParams();
   const field = searchParams.get("field");
   const subfield = searchParams.get("subfield");
+  const questionCount = searchParams.get("count") || "10";
   
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -81,7 +82,7 @@ function PracticeContent() {
     const fetchQuestions = async () => {
       try {
         const response = await fetch(
-          `/api/questions?field=${field}&subfield=${subfield}`
+          `/api/questions?field=${field}&subfield=${subfield}&count=${questionCount}`
         );
         const data = await response.json();
         setQuestions(data);
@@ -96,7 +97,7 @@ function PracticeContent() {
     if (field && subfield) {
       fetchQuestions();
     }
-  }, [field, subfield]);
+  }, [field, subfield, questionCount]);
 
   const handleAnswerSubmit = async (answer: string) => {
     try {
