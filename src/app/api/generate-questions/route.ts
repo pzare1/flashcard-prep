@@ -80,10 +80,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { field, subField, count = 10, jobTitle, jobDescription } = await request.json();
+    const { field, subField, count = 5, jobTitle, jobDescription } = await request.json();
     
-    // Ensure count is one of the valid options
-    const validCount = [5, 10].includes(Number(count)) ? Number(count) : 10;
+    // Ensure count is within valid range (1-10)
+    const validCount = Math.min(Math.max(1, Number(count)), 10);
     
     const jobContext = jobTitle || jobDescription 
       ? `Consider this job context:

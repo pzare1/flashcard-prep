@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import VoiceInput from "@/components/VoiceInput";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   BookOpen,
@@ -235,14 +236,21 @@ function PracticeContent() {
               </AlertDescription>
             </Alert>
           )}
-          <textarea
-            className="w-full h-32 bg-gray-900/50 border border-purple-900/20 rounded-lg p-4 
-                     text-gray-200 focus:outline-none focus:border-purple-500/50 transition-colors"
-            placeholder="Type your answer here..."
-            disabled={isRevealed}
-            value={answer}
-            onChange={(e) => setAnswer(e.target.value)}
-          />
+          <div className="relative">
+            <textarea
+              className="w-full h-32 bg-gray-900/50 border border-purple-900/20 rounded-lg p-4 
+                       text-gray-200 focus:outline-none focus:border-purple-500/50 transition-colors"
+              placeholder="Type your answer here..."
+              disabled={isRevealed}
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+            />
+            {!isRevealed && (
+              <div className="absolute bottom-3 right-3">
+                <VoiceInput onTranscriptionComplete={(text) => setAnswer(prev => prev + " " + text)} />
+              </div>
+            )}
+          </div>
           {!isRevealed && (
             <button
               onClick={() => handleAnswerSubmit(answer)}
