@@ -104,8 +104,7 @@ Provide a comprehensive evaluation following all specified criteria.`
         ],
         model: "mixtral-8x7b-32768",
         temperature: 0.1,
-        max_tokens: 1000,
-        response_format: { type: "json_object" }
+        max_tokens: 1000
       });
 
       if (!completion.choices[0]?.message?.content) {
