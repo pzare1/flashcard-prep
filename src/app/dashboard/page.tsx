@@ -2,14 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { motion, AnimatePresence } from "framer-motion";
 import { QuestionCard } from "@/components/QuestionCard";
 import { QuestionModal } from "@/components/modals/QuestionModal";
 import { 
   Search, 
-  Filter, 
-  ArrowUpRight, 
   Book, 
   Award, 
   Clock, 
@@ -17,6 +14,7 @@ import {
   SlidersHorizontal 
 } from "lucide-react";
 import { Footer } from "@/components/Footer";
+import PerformanceChart from "../../components/ModernPerformanceChart";
 
 interface Question {
   _id: string;
@@ -222,49 +220,7 @@ export default function Dashboard() {
           </motion.div>
         </div>
 
-        <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50 mb-8">
-          <h3 className="text-lg font-medium text-white mb-4">Performance Over Time</h3>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={questions
-                .flatMap(q => (q.attempts || []).map(attempt => ({
-                  date: new Date(attempt.timestamp).toLocaleDateString(),
-                  score: attempt.score
-                })))
-                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                .slice(0, 20)
-                .reverse() // Reverse to show oldest to newest
-              }>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis 
-                  dataKey="date" 
-                  stroke="#9CA3AF"
-                  angle={-45}
-                  textAnchor="end"
-                  height={60}
-                />
-                <YAxis stroke="#9CA3AF" domain={[0, 10]} />
-                <Tooltip 
-                  contentStyle={{
-                    backgroundColor: "#1F2937",
-                    border: "1px solid #374151",
-                    borderRadius: "0.5rem"
-                  }}
-                />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="score"
-                  name="Score"
-                  stroke="#8B5CF6"
-                  strokeWidth={2}
-                  dot={{ fill: "#8B5CF6", r: 4 }}
-                  activeDot={{ r: 6, fill: "#A78BFA" }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        <PerformanceChart questions={questions} className="mb-8" />
 
         <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">

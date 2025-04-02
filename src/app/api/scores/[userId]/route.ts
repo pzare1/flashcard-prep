@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
             Return only the numerical score.`
         }
       ],
-      model: "mixtral-8x7b-32768",
+      model: "llama3-70b-8192",
       temperature: 0.3,
       max_tokens: 10,
     });
