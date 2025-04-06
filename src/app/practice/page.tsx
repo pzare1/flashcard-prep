@@ -133,6 +133,9 @@ function PracticeContent() {
       const timeTaken = startTime ? (endTime.getTime() - startTime.getTime()) / 1000 : 0;
 
       if (!userId) {
+        sessionStorage.setItem("pendingAnswer", answer);
+        sessionStorage.setItem("pendingQuestionId", questions[currentIndex]._id);
+        sessionStorage.setItem("redirectPath", window.location.pathname + window.location.search);
         window.location.href = "/sign-in";
         return;
       }
@@ -194,6 +197,21 @@ function PracticeContent() {
       setIsSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    if (userId && !isLoading) {
+      const pendingAnswer = sessionStorage.getItem("pendingAnswer");
+      const pendingQuestionId = sessionStorage.getItem("pendingQuestionId");
+      
+      if (pendingAnswer && pendingQuestionId) {
+        sessionStorage.removeItem("pendingAnswer");
+        sessionStorage.removeItem("pendingQuestionId");
+        sessionStorage.removeItem("redirectPath");
+        
+        handleAnswerSubmit(pendingAnswer);
+      }
+    }
+  }, [userId, isLoading]);
 
   const handleNext = () => {
     if (currentIndex < questions.length - 1) {
