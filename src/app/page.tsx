@@ -13,6 +13,14 @@ import { FieldSelection } from "@/components/FieldSelection";
 import { SelectionPanel } from "@/components/SelectionPanel";
 import { containerVariants } from "@/lib/animation-variants";
 
+interface Question {
+  _id: string;
+  field: string;
+  subField: string;
+  question: string;
+  answer: string;
+}
+
 const testimonials = [
   {
     name: "Sarah Johnson",
@@ -115,7 +123,7 @@ export default function Home() {
         throw new Error("Invalid response format");
       }
   
-      sessionStorage.setItem("questionSet", JSON.stringify(data.questions.map(q => q._id)));
+      sessionStorage.setItem("questionSet", JSON.stringify(data.questions.map((q: Question) => q._id)));
       sessionStorage.setItem("expectedQuestionCount", questionCount.toString());
       
       router.push(`/practice?field=${encodeURIComponent(selectedField)}&subfield=${encodeURIComponent(selectedSubField)}&count=${questionCount}`);
