@@ -10,6 +10,7 @@ export interface IQuestion extends Document {
   answer: string;
   userAnswer?: string;
   attempts: {
+    userId: string;
     answer: string;
     score: number;
     timestamp: Date;
@@ -64,6 +65,10 @@ const QuestionSchema = new Schema({
   },
   
   attempts: [{
+    userId: {
+      type: String,
+      required: true
+    },
     answer: String,
     score: Number,
     timestamp: {

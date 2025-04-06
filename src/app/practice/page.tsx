@@ -24,6 +24,7 @@ import {
   Zap,
   RefreshCw
 } from "lucide-react";
+import { useAuth } from "@clerk/nextjs";
 
 interface Question {
   _id: string;
@@ -60,10 +61,12 @@ function LoadingSpinner() {
 }
 
 function PracticeContent() {
+  const { userId } = useAuth();
   const searchParams = useSearchParams();
   const field = searchParams.get("field");
   const subfield = searchParams.get("subfield");
-  const questionCount = searchParams.get("count") || "10";
+  const count = searchParams.get("count") || sessionStorage.getItem("expectedQuestionCount") || "10";
+  const questionCount = parseInt(count, 10);
   
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -78,6 +81,7 @@ function PracticeContent() {
   const [streakCount, setStreakCount] = useState(0);
   const [showHint, setShowHint] = useState(false);
   const [answer, setAnswer] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const fetchQuestions = async () => {
@@ -86,6 +90,12 @@ function PracticeContent() {
           `/api/questions?field=${field}&subfield=${subfield}&count=${questionCount}`
         );
         const data = await response.json();
+        
+        if (data.length !== questionCount) {
+          console.error(`Expected ${questionCount} questions but received ${data.length}`);
+          return;
+        }
+        
         setQuestions(data);
         setIsLoading(false);
         setStartTime(new Date());
@@ -100,10 +110,32 @@ function PracticeContent() {
     }
   }, [field, subfield, questionCount]);
 
+  useEffect(() => {
+    const savedProgress = sessionStorage.getItem("currentProgress");
+    if (savedProgress) {
+      try {
+        const progress = JSON.parse(savedProgress);
+        setCurrentIndex(progress.currentIndex);
+        setScores(progress.scores);
+        setTotalTime(progress.totalTime);
+        setStreakCount(progress.streakCount);
+        sessionStorage.removeItem("currentProgress");
+      } catch (error) {
+        console.error("Error restoring progress:", error);
+      }
+    }
+  }, []);
+
   const handleAnswerSubmit = async (answer: string) => {
     try {
+      setIsSubmitting(true);
       const endTime = new Date();
       const timeTaken = startTime ? (endTime.getTime() - startTime.getTime()) / 1000 : 0;
+
+      if (!userId) {
+        window.location.href = "/sign-in";
+        return;
+      }
 
       const response = await fetch("/api/evaluate", {
         method: "POST",
@@ -117,11 +149,24 @@ function PracticeContent() {
           field,
           subfield,
           difficulty: questions[currentIndex].difficulty,
-          timeTaken
+          timeTaken,
+          userId
         }),
       });
 
       const data = await response.json();
+      
+      if (response.status === 401 || response.status === 403) {
+        console.error("Authorization error:", data.error);
+        sessionStorage.setItem("currentProgress", JSON.stringify({
+          currentIndex,
+          scores,
+          totalTime,
+          streakCount
+        }));
+        window.location.href = "/sign-in";
+        return;
+      }
       
       if (!response.ok) {
         console.error("Evaluation error:", data.error);
@@ -134,7 +179,6 @@ function PracticeContent() {
       setIsRevealed(true);
       setTotalTime((prev) => prev + timeTaken);
 
-      // Update streak
       if (data.score >= 7) {
         setStreakCount(prev => prev + 1);
       } else {
@@ -146,6 +190,8 @@ function PracticeContent() {
       }
     } catch (error) {
       console.error("Error evaluating answer:", error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -156,7 +202,7 @@ function PracticeContent() {
       setCurrentScore(null);
       setShowHint(false);
       setStartTime(new Date());
-      setAnswer(''); // Clear the answer field when moving to the next question
+      setAnswer('');
     }
   };
 
@@ -195,8 +241,8 @@ function PracticeContent() {
         className="h-2 bg-gray-700"
       />
       <div className="flex justify-between mt-2 text-sm text-gray-400">
-        <span>Question {currentIndex + 1} of {questions.length}</span>
-        <span>{Math.round((currentIndex / questions.length) * 100)}% Complete</span>
+        <span>Question {currentIndex + 1} of {questionCount}</span>
+        <span>{Math.round((currentIndex / questionCount) * 100)}% Complete</span>
       </div>
     </div>
   );
@@ -254,11 +300,20 @@ function PracticeContent() {
           {!isRevealed && (
             <button
               onClick={() => handleAnswerSubmit(answer)}
+              disabled={isSubmitting}
               className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 
                        hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl 
-                       p-4 font-medium transition-all duration-200"
+                       p-4 font-medium transition-all duration-200 disabled:opacity-50
+                       disabled:cursor-not-allowed flex items-center justify-center"
             >
-              Submit Answer
+              {isSubmitting ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-3"></div>
+                  Evaluating...
+                </>
+              ) : (
+                'Submit Answer'
+              )}
             </button>
           )}
         </div>

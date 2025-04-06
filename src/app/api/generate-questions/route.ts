@@ -3,6 +3,7 @@ import { Groq } from "groq-sdk";
 import { connectToDatabase } from "@/lib/mongodb";
 import Question from "../../../../models/question"
 import { auth } from "@clerk/nextjs/server";
+import User from "../../../../models/user";
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -75,113 +76,189 @@ const generateDefaultQuestions = (field: string, subField: string, count: number
 
 export async function POST(request: NextRequest) {
   try {
+    // 1. Authentication
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { field, subField, count = 5, jobTitle, jobDescription } = await request.json();
-    
-    // Ensure count is within valid range (1-10)
-    const validCount = Math.min(Math.max(1, Number(count)), 10);
-    
-    const jobContext = jobTitle || jobDescription 
-      ? `Consider this job context:
-         Job Title: ${jobTitle}
-         Job Description: ${jobDescription}
-         Generate questions that are particularly relevant to this role.`
-      : '';
+    // 2. Parse request body
+    const body = await request.json();
+    console.log("Received request body:", body); // Debug log
 
-    const prompt = `Generate EXACTLY ${validCount} interview questions for ${field} specifically focusing on ${subField}.
-      ${jobContext}
-      Each question MUST have a detailed answer and difficulty level (beginner/intermediate/advanced).
-      Format as JSON: {
-        "questions": [
-          {
-            "question": "Full question text",
-            "answer": "Detailed answer text",
-            "difficulty": "beginner|intermediate|advanced"
-          },
-          ...more questions...
-        ]
-      }
-      Ensure:
-      1. A mix of difficulty levels
-      2. Comprehensive answers
-      3. Questions align with the job requirements when provided
-      4. EXACTLY ${validCount} questions, no more and no less
-      5. Valid JSON format with all required fields`;
+    const { field, subField, count = 5, jobTitle = "", jobDescription = "" } = body;
 
-    const completion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: "system",
-          content: `You are an expert interview question generator for technical and non-technical fields. Generate structured, detailed questions with comprehensive answers. Always use valid JSON format with the structure provided. Include specific difficulty levels: beginner, intermediate, or advanced. YOU MUST GENERATE EXACTLY THE NUMBER OF QUESTIONS REQUESTED.`
-        },
-        { role: "user", content: prompt }
-      ],
-      model: "llama-3.2-90b-vision-preview",
-      temperature: 0.7,
-      max_tokens: 8000,
-    });
+    // 3. Validate inputs
+    if (!field || !subField) {
+      return NextResponse.json(
+        { error: "Field and subField are required" },
+        { status: 400 }
+      );
+    }
 
-    const content = completion.choices[0]?.message?.content || "";
-    let questions = [];
-    
+    // 4. Connect to database
     try {
-      const response = safeJSONParse(content.trim());
-      // Validate response structure
-      if (response.questions && Array.isArray(response.questions)) {
-        // Validate all questions have required fields
-        questions = response.questions.filter(validateQuestionFormat);
-      }
-    } catch (error) {
-      console.error("Error parsing AI response:", error);
-      // If parsing fails, we'll use default questions (handled below)
+      await connectToDatabase();
+    } catch (dbError) {
+      console.error("Database connection error:", dbError);
+      return NextResponse.json(
+        { error: "Database connection failed" },
+        { status: 500 }
+      );
     }
-    
-    // If we don't have enough valid questions from the AI, generate default ones to fill the gap
-    if (questions.length < validCount) {
-      console.warn(`Only ${questions.length} valid questions found from AI, adding default questions to meet the count`);
-      
-      // Generate default questions for the remaining count
-      const defaultQuestions = generateDefaultQuestions(field, subField, validCount - questions.length);
-      questions = [...questions, ...defaultQuestions];
-    }
-    
-    // Ensure we have exactly the right number
-    questions = questions.slice(0, validCount);
 
-    await connectToDatabase();
-    
-    // Save exactly validCount questions
-    const savedQuestions = await Promise.all(
-      questions.map(async (q: any) => {
-        const question = new Question({
+    // 5. Find or create user
+    let user;
+    try {
+      user = await User.findOne({ userId });
+      if (!user) {
+        user = new User({
           userId,
-          field,
-          subField,
-          question: q.question,
-          answer: q.answer,
-          difficulty: mapDifficulty(q.difficulty),
-          timesAnswered: 0,
-          averageScore: 0,
-          scores: []
+          credits: 100,
+          totalQuestionsGenerated: 0
         });
-        return await question.save();
-      })
-    );
-    
-    // Perform a final check before returning
-    if (savedQuestions.length !== validCount) {
-      console.error(`Critical error: Saved ${savedQuestions.length} questions but expected ${validCount}`);
+        await user.save();
+      }
+    } catch (userError) {
+      console.error("User management error:", userError);
+      return NextResponse.json(
+        { error: "Failed to manage user credits" },
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json(savedQuestions);
+    // 6. Check credits
+    const validCount = Math.min(Math.max(1, Number(count)), 50);
+    if (user.credits < validCount) {
+      return NextResponse.json(
+        { error: `Insufficient credits. You need ${validCount} credits but have ${user.credits}` },
+        { status: 400 }
+      );
+    }
+
+    // 7. Check API key
+    if (!process.env.GROQ_API_KEY) {
+      console.error("GROQ_API_KEY is missing");
+      return NextResponse.json(
+        { error: "API configuration error" },
+        { status: 500 }
+      );
+    }
+
+    // 8. Generate questions
+    let completion;
+    try {
+      completion = await groq.chat.completions.create({
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert interview question generator specializing in creating detailed questions with comprehensive answers. Format your response as valid JSON."
+          },
+          {
+            role: "user",
+            content: `Generate EXACTLY ${validCount} interview questions for ${field} specifically focusing on ${subField}.
+              ${jobTitle || jobDescription ? `Consider this context:
+                Job Title: ${jobTitle}
+                Job Description: ${jobDescription}` : ''}
+              Return in this exact JSON format:
+              {
+                "questions": [
+                  {
+                    "question": "Question text",
+                    "answer": "Detailed answer",
+                    "difficulty": "beginner"
+                  }
+                ]
+              }
+              Ensure:
+              1. EXACTLY ${validCount} questions
+              2. Valid JSON format
+              3. All fields present
+              4. Mix of difficulty levels (beginner/intermediate/advanced)`
+          }
+        ],
+        model: "llama-3.2-90b-vision-preview",
+        temperature: 0.7,
+        max_tokens: 8000,
+      });
+    } catch (aiError) {
+      console.error("AI API error:", aiError);
+      return NextResponse.json(
+        { error: "Failed to generate questions from AI" },
+        { status: 500 }
+      );
+    }
+
+    // 9. Parse AI response
+    let questions;
+    try {
+      const content = completion.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No content received from AI");
+      }
+
+      const parsedResponse = safeJSONParse(content);
+      if (!parsedResponse.questions || !Array.isArray(parsedResponse.questions)) {
+        throw new Error("Invalid response format from AI");
+      }
+
+      questions = parsedResponse.questions;
+      
+      if (questions.length !== validCount) {
+        throw new Error(`AI generated ${questions.length} questions instead of ${validCount}`);
+      }
+    } catch (parseError) {
+      console.error("Parse error:", parseError);
+      return NextResponse.json(
+        { error: "Failed to parse AI response" },
+        { status: 500 }
+      );
+    }
+
+    // 10. Save questions
+    try {
+      const savedQuestions = await Promise.all(
+        questions.map(async (q: any) => {
+          const question = new Question({
+            userId,
+            field,
+            subField,
+            question: q.question,
+            answer: q.answer,
+            difficulty: q.difficulty.toLowerCase(),
+            timesAnswered: 0,
+            averageScore: 0,
+            scores: [],
+            attempts: []
+          });
+          return await question.save();
+        })
+      );
+
+      // 11. Update user credits
+      user.credits -= validCount;
+      user.totalQuestionsGenerated += validCount;
+      await user.save();
+
+      return NextResponse.json({
+        questions: savedQuestions,
+        remainingCredits: user.credits,
+        totalGenerated: user.totalQuestionsGenerated
+      });
+    } catch (saveError) {
+      console.error("Save error:", saveError);
+      return NextResponse.json(
+        { error: "Failed to save questions" },
+        { status: 500 }
+      );
+    }
   } catch (error: any) {
-    console.error("Error:", error);
+    console.error("General error:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to generate questions" },
+      { 
+        error: error.message || "Failed to generate questions",
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      },
       { status: 500 }
     );
   }

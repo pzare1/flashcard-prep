@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Groq } from "groq-sdk";
 import { connectToDatabase } from "@/lib/mongodb";
 import Question from "../../../../models/question";
+import { auth } from "@clerk/nextjs/server";
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -9,6 +10,12 @@ const groq = new Groq({
 
 export async function POST(request: NextRequest) {
   try {
+    // Get the authenticated user
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { userAnswer, correctAnswer, questionId, field, subfield, difficulty, timeTaken } = await request.json();
 
     // Input validation
@@ -28,14 +35,18 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      // Connect to database first to validate question exists
       await connectToDatabase();
-      const question = await Question.findById(questionId);
+      
+      // Find the question and include userId in the query
+      const question = await Question.findOne({
+        _id: questionId,
+        userId: userId  // This ensures the user owns the question
+      });
       
       if (!question) {
         return NextResponse.json(
-          { error: "Question not found" },
-          { status: 404 }
+          { error: "Question not found or unauthorized access" },
+          { status: 403 }
         );
       }
 
@@ -157,6 +168,7 @@ Provide a comprehensive evaluation following all specified criteria. Format your
 
       // Create new attempt record
       const newAttempt = {
+        userId,
         answer: userAnswer,
         score: score,
         feedback: evaluation.feedback || "No feedback provided",
@@ -208,20 +220,14 @@ Provide a comprehensive evaluation following all specified criteria. Format your
     } catch (evalError) {
       console.error("Evaluation error:", evalError);
       return NextResponse.json(
-        { 
-          error: (evalError as Error).message || "Error during answer evaluation",
-          details: process.env.NODE_ENV === 'development' ? evalError : undefined
-        },
+        { error: "Error during answer evaluation" },
         { status: 500 }
       );
     }
   } catch (error) {
     console.error("Request error:", error);
     return NextResponse.json(
-      { 
-        error: "Failed to process request",
-        details: process.env.NODE_ENV === 'development' ? error : undefined
-      },
+      { error: "Failed to process request" },
       { status: 500 }
     );
   }
