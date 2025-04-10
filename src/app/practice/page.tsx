@@ -25,6 +25,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import { useAuth } from "@clerk/nextjs";
+import { toast, Toaster } from "sonner";
 
 interface Question {
   _id: string;
@@ -61,7 +62,7 @@ function LoadingSpinner() {
 }
 
 function PracticeContent() {
-  const { userId } = useAuth();
+  const { userId, isLoaded } = useAuth();
   const searchParams = useSearchParams();
   const field = searchParams.get("field");
   const subfield = searchParams.get("subfield");
@@ -82,6 +83,14 @@ function PracticeContent() {
   const [showHint, setShowHint] = useState(false);
   const [answer, setAnswer] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isFormValid, setIsFormValid] = useState(true);
+
+  useEffect(() => {
+    if (isLoaded) {
+      setIsAuthenticated(!!userId);
+    }
+  }, [isLoaded, userId]);
 
   useEffect(() => {
     const fetchQuestions = async () => {
@@ -127,18 +136,36 @@ function PracticeContent() {
   }, []);
 
   const handleAnswerSubmit = async (answer: string) => {
+    if (!answer.trim()) {
+      setIsFormValid(false);
+      toast.error("Please enter your answer before submitting", {
+        description: "The answer field cannot be empty",
+        duration: 3000,
+      });
+      return;
+    }
+
+    setIsFormValid(true);
+
+    if (!isAuthenticated) {
+      sessionStorage.setItem("currentProgress", JSON.stringify({
+        currentIndex,
+        scores,
+        totalTime,
+        streakCount
+      }));
+      sessionStorage.setItem("pendingAnswer", answer);
+      sessionStorage.setItem("pendingQuestionId", questions[currentIndex]._id);
+      sessionStorage.setItem("redirectPath", window.location.pathname + window.location.search);
+      
+      window.location.href = "/sign-in";
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       const endTime = new Date();
       const timeTaken = startTime ? (endTime.getTime() - startTime.getTime()) / 1000 : 0;
-
-      if (!userId) {
-        sessionStorage.setItem("pendingAnswer", answer);
-        sessionStorage.setItem("pendingQuestionId", questions[currentIndex]._id);
-        sessionStorage.setItem("redirectPath", window.location.pathname + window.location.search);
-        window.location.href = "/sign-in";
-        return;
-      }
 
       const response = await fetch("/api/evaluate", {
         method: "POST",
@@ -193,6 +220,9 @@ function PracticeContent() {
       }
     } catch (error) {
       console.error("Error evaluating answer:", error);
+      toast.error("Failed to submit answer", {
+        description: "Please try again",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -302,13 +332,26 @@ function PracticeContent() {
           )}
           <div className="relative">
             <textarea
-              className="w-full h-32 bg-gray-900/50 border border-purple-900/20 rounded-lg p-4 
-                       text-gray-200 focus:outline-none focus:border-purple-500/50 transition-colors"
+              className={`w-full h-32 bg-gray-900/50 border rounded-lg p-4 
+                       text-gray-200 focus:outline-none transition-colors
+                       ${!isFormValid 
+                         ? 'border-red-500/50 focus:border-red-500/75' 
+                         : 'border-purple-900/20 focus:border-purple-500/50'}`}
               placeholder="Type your answer here..."
               disabled={isRevealed}
               value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
+              onChange={(e) => {
+                setAnswer(e.target.value);
+                if (!isFormValid && e.target.value.trim()) {
+                  setIsFormValid(true);
+                }
+              }}
             />
+            {!isFormValid && (
+              <p className="text-red-400 text-sm mt-1">
+                Please enter your answer before submitting
+              </p>
+            )}
             {!isRevealed && (
               <div className="absolute bottom-3 right-3">
                 <VoiceInput onTranscriptionComplete={(text) => setAnswer(prev => prev + " " + text)} />
@@ -319,16 +362,17 @@ function PracticeContent() {
             <button
               onClick={() => handleAnswerSubmit(answer)}
               disabled={isSubmitting}
-              className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 
+              className={`w-full bg-gradient-to-r from-purple-600 to-indigo-600 
                        hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl 
-                       p-4 font-medium transition-all duration-200 disabled:opacity-50
-                       disabled:cursor-not-allowed flex items-center justify-center"
+                       p-4 font-medium transition-all duration-200 
+                       ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}
+                       flex items-center justify-center`}
             >
               {isSubmitting ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-3"></div>
-                  Evaluating...
-                </>
+                <div className="flex items-center justify-center gap-2">
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                  <span>Evaluating...</span>
+                </div>
               ) : (
                 'Submit Answer'
               )}
@@ -577,14 +621,41 @@ function PracticeContent() {
           </div>
         )}
       </div>
+      <Toaster 
+        richColors 
+        position="top-center"
+        toastOptions={{
+          style: {
+            background: 'rgb(31, 41, 55)',
+            color: 'white',
+            border: '1px solid rgba(139, 92, 246, 0.2)',
+          },
+          duration: 3000,
+        }}
+      />
     </div>
   );
 }
 
 export default function PracticePage() {
   return (
-    <Suspense fallback={<LoadingSpinner />}>
-      <PracticeContent />
-    </Suspense>
+    <>
+      <Suspense fallback={<LoadingSpinner />}>
+        <PracticeContent />
+      </Suspense>
+      <Toaster
+        richColors
+        position="top-center"
+        toastOptions={{
+          style: {
+            background: 'rgb(31, 41, 55)', // dark background
+            color: 'white',
+            border: '1px solid rgba(139, 92, 246, 0.2)', // purple border
+          },
+          className: 'my-toast-class',
+          duration: 3000,
+        }}
+      />
+    </>
   );
 }
