@@ -61,6 +61,27 @@ function LoadingSpinner() {
   );
 }
 
+// Add a utility function for retrying failed requests
+const fetchWithRetry = async (url: string, options: RequestInit, maxRetries = 3) => {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const response = await fetch(url, options);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Server error');
+      }
+      
+      return { data };
+    } catch (error) {
+      if (i === maxRetries - 1) throw error;
+      // Wait for 1 second before retrying (can be adjusted)
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+  throw new Error('Max retries reached');
+};
+
 function PracticeContent() {
   const { userId, isLoaded } = useAuth();
   const searchParams = useSearchParams();
@@ -140,12 +161,9 @@ function PracticeContent() {
       setIsFormValid(false);
       toast.error("Please enter your answer before submitting", {
         description: "The answer field cannot be empty",
-        duration: 3000,
       });
       return;
     }
-
-    setIsFormValid(true);
 
     if (!isAuthenticated) {
       sessionStorage.setItem("currentProgress", JSON.stringify({
@@ -167,42 +185,27 @@ function PracticeContent() {
       const endTime = new Date();
       const timeTaken = startTime ? (endTime.getTime() - startTime.getTime()) / 1000 : 0;
 
-      const response = await fetch("/api/evaluate", {
+      const requestBody = {
+        userAnswer: answer,
+        correctAnswer: questions[currentIndex].answer,
+        questionId: questions[currentIndex]._id,
+        field,
+        subfield,
+        difficulty: questions[currentIndex].difficulty,
+        timeTaken,
+        userId
+      };
+
+      // Use the retry mechanism
+      const { data } = await fetchWithRetry("/api/evaluate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          userAnswer: answer,
-          correctAnswer: questions[currentIndex].answer,
-          questionId: questions[currentIndex]._id,
-          field,
-          subfield,
-          difficulty: questions[currentIndex].difficulty,
-          timeTaken,
-          userId
-        }),
+        body: JSON.stringify(requestBody),
       });
 
-      const data = await response.json();
-      
-      if (response.status === 401 || response.status === 403) {
-        console.error("Authorization error:", data.error);
-        sessionStorage.setItem("currentProgress", JSON.stringify({
-          currentIndex,
-          scores,
-          totalTime,
-          streakCount
-        }));
-        window.location.href = "/sign-in";
-        return;
-      }
-      
-      if (!response.ok) {
-        console.error("Evaluation error:", data.error);
-        return;
-      }
-
+      // If we get here, the request was successful
       setEvaluationResult(data);
       setCurrentScore(data.score);
       setScores((prev) => [...prev, data.score]);
@@ -218,11 +221,32 @@ function PracticeContent() {
       if (currentIndex === questions.length - 1) {
         setIsComplete(true);
       }
+
+      // Show success toast
+      toast.success("Answer submitted successfully!", {
+        description: `Score: ${data.score}/10`,
+      });
+
     } catch (error) {
       console.error("Error evaluating answer:", error);
-      toast.error("Failed to submit answer", {
-        description: "Please try again",
-      });
+      // Show specific error message based on the error
+      if (error instanceof Error) {
+        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+          toast.error("Network connection issue", {
+            description: "Please check your internet connection and try again",
+          });
+        } else if (error.message.includes('Unauthorized') || error.message.includes('401')) {
+          toast.error("Authentication error", {
+            description: "Please sign in again",
+          });
+          // Redirect to sign-in page
+          window.location.href = "/sign-in";
+        } else {
+          toast.error("Failed to evaluate answer", {
+            description: "Please try submitting again",
+          });
+        }
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -621,41 +645,14 @@ function PracticeContent() {
           </div>
         )}
       </div>
-      <Toaster 
-        richColors 
-        position="top-center"
-        toastOptions={{
-          style: {
-            background: 'rgb(31, 41, 55)',
-            color: 'white',
-            border: '1px solid rgba(139, 92, 246, 0.2)',
-          },
-          duration: 3000,
-        }}
-      />
     </div>
   );
 }
 
 export default function PracticePage() {
   return (
-    <>
-      <Suspense fallback={<LoadingSpinner />}>
-        <PracticeContent />
-      </Suspense>
-      <Toaster
-        richColors
-        position="top-center"
-        toastOptions={{
-          style: {
-            background: 'rgb(31, 41, 55)', // dark background
-            color: 'white',
-            border: '1px solid rgba(139, 92, 246, 0.2)', // purple border
-          },
-          className: 'my-toast-class',
-          duration: 3000,
-        }}
-      />
-    </>
+    <Suspense fallback={<LoadingSpinner />}>
+      <PracticeContent />
+    </Suspense>
   );
 }
