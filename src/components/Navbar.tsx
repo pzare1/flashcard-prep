@@ -4,6 +4,7 @@ import Link from "next/link";
 import { UserButton, SignInButton, useAuth } from "@clerk/nextjs";
 import { Brain } from "lucide-react";
 import { Logo } from "./Logo";
+import { UserCredits } from "./UserCredits";
 
 const Navbar = () => {
   const { isSignedIn } = useAuth();
@@ -33,12 +34,7 @@ const Navbar = () => {
                 >
                   Dashboard
                 </Link>
-                <Link
-                  href="/progress"
-                  className="text-gray-300 hover:text-purple-400 transition"
-                >
-                  Progress
-                </Link>
+                <UserCredits />
                 <UserButton
                   afterSignOutUrl="/"
                   appearance={{

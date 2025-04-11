@@ -1,8 +1,16 @@
 "use client";
 
 import { SignIn } from "@clerk/nextjs";
+import { useEffect } from "react";
 
 export function AuthModal() {
+  useEffect(() => {
+    // Store the current URL if not already stored
+    if (!sessionStorage.getItem("redirectPath")) {
+      sessionStorage.setItem("redirectPath", window.location.pathname + window.location.search);
+    }
+  }, []);
+
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4">
       <div className="bg-gray-800/90 backdrop-blur-sm p-6 rounded-2xl">

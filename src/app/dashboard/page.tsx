@@ -2,14 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { motion, AnimatePresence } from "framer-motion";
 import { QuestionCard } from "@/components/QuestionCard";
 import { QuestionModal } from "@/components/modals/QuestionModal";
 import { 
   Search, 
-  Filter, 
-  ArrowUpRight, 
   Book, 
   Award, 
   Clock, 
@@ -17,6 +14,7 @@ import {
   SlidersHorizontal 
 } from "lucide-react";
 import { Footer } from "@/components/Footer";
+import PerformanceChart from "../../components/ModernPerformanceChart";
 
 interface Question {
   _id: string;
@@ -27,6 +25,12 @@ interface Question {
   userAnswer?: string;
   difficulty: string;
   score?: number;
+  attempts?: Array<{
+    answer: string;
+    score: number;
+    timestamp: Date;
+    _id: string;
+  }>;
   notes?: Array<{
     id: string;
     content: string;
@@ -129,7 +133,15 @@ export default function Dashboard() {
     });
 
   const averageScore = questions.length 
-    ? questions.reduce((acc, q) => acc + (q.score || 0), 0) / questions.length 
+    ? questions
+        .flatMap(q => q.attempts || [])
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, 20)
+        .reduce((acc, attempt) => acc + (attempt.score || 0), 0) / 
+        Math.min(
+          questions.flatMap(q => q.attempts || []).length,
+          20
+        ) 
     : 0;
 
   const totalReviewed = questions.filter(q => q.lastReviewedAt).length;
@@ -208,38 +220,7 @@ export default function Dashboard() {
           </motion.div>
         </div>
 
-        <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50 mb-8">
-          <h3 className="text-lg font-medium text-white mb-4">Performance Over Time</h3>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={questions.map(q => ({
-                date: new Date(q.createdAt).toLocaleDateString(),
-                score: q.score || 0
-              }))}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis dataKey="date" stroke="#9CA3AF" />
-                <YAxis stroke="#9CA3AF" domain={[0, 10]} />
-                <Tooltip 
-                  contentStyle={{
-                    backgroundColor: "#1F2937",
-                    border: "1px solid #374151",
-                    borderRadius: "0.5rem"
-                  }}
-                />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="score"
-                  name="Score"
-                  stroke="#8B5CF6"
-                  strokeWidth={2}
-                  dot={{ fill: "#8B5CF6", r: 4 }}
-                  activeDot={{ r: 6, fill: "#A78BFA" }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        <PerformanceChart questions={questions} className="mb-8" />
 
         <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
