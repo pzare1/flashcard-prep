@@ -11,10 +11,14 @@ import {
   Award, 
   Clock, 
   BrainCircuit,
-  SlidersHorizontal 
+  SlidersHorizontal,
+  ChevronRight
 } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import PerformanceChart from "../../components/ModernPerformanceChart";
+import Link from 'next/link';
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 interface Question {
   _id: string;
@@ -40,6 +44,17 @@ interface Question {
   lastReviewedAt?: Date;
 }
 
+interface PracticeProgress {
+  _id: string;
+  field: string;
+  subField: string;
+  questions: string[];
+  currentIndex: number;
+  scores: number[];
+  totalTime: number;
+  lastUpdatedAt: Date;
+}
+
 export default function Dashboard() {
   const { userId } = useAuth();
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -51,6 +66,8 @@ export default function Dashboard() {
   const [sortBy, setSortBy] = useState<string>("date");
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
+  const [inProgressSessions, setInProgressSessions] = useState<PracticeProgress[]>([]);
+  const [loadingInProgress, setLoadingInProgress] = useState(true);
 
   useEffect(() => {
     const fetchQuestions = async () => {
@@ -67,6 +84,37 @@ export default function Dashboard() {
     };
 
     fetchQuestions();
+  }, [userId]);
+
+  useEffect(() => {
+    const fetchInProgressSessions = async () => {
+      if (!userId) {
+        setLoadingInProgress(false);
+        return;
+      }
+      
+      try {
+        const response = await fetch('/api/practice-progress', {
+          method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (Array.isArray(data)) {
+          setInProgressSessions(data);
+        } else {
+          console.error("Unexpected response format:", data);
+          setInProgressSessions([]);
+        }
+      } catch (error) {
+        console.error("Error fetching in-progress sessions:", error);
+        setInProgressSessions([]);
+      } finally {
+        setLoadingInProgress(false);
+      }
+    };
+
+    fetchInProgressSessions();
   }, [userId]);
 
   const handleSaveQuestion = async (questionId: string, data: any) => {
@@ -147,6 +195,116 @@ export default function Dashboard() {
   const totalReviewed = questions.filter(q => q.lastReviewedAt).length;
   const totalNotes = questions.reduce((acc, q) => acc + (q.notes?.length || 0), 0);
 
+  const renderInProgressSessions = () => {
+    if (loadingInProgress) {
+      return (
+        <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50 flex justify-center">
+          <div className="animate-pulse flex space-x-4">
+            <div className="flex-1 space-y-6 py-1">
+              <div className="h-2 bg-gray-700 rounded"></div>
+              <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="h-2 bg-gray-700 rounded col-span-2"></div>
+                  <div className="h-2 bg-gray-700 rounded col-span-1"></div>
+                </div>
+                <div className="h-2 bg-gray-700 rounded"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    console.log("In progress sessions to render:", inProgressSessions);
+
+    if (!inProgressSessions || inProgressSessions.length === 0) {
+      return null;
+    }
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6 }}
+        className="mb-10"
+      >
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold text-white">Resume Practice Sessions</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.isArray(inProgressSessions) && inProgressSessions.map((session) => {
+            if (!session || !session.questions || !session.questions.length) {
+              return null;
+            }
+            
+            const progressPercentage = (session.currentIndex / session.questions.length) * 100;
+            const avgScore = session.scores && session.scores.length > 0 
+              ? session.scores.reduce((a, b) => a + b, 0) / session.scores.length
+              : 0;
+            
+            return (
+              <motion.div
+                key={session._id}
+                whileHover={{ y: -5 }}
+                className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50"
+              >
+                <div className="flex justify-between items-center mb-2">
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">{session.field}</h3>
+                    <p className="text-sm text-gray-400">{session.subField}</p>
+                  </div>
+                  <Badge className="bg-yellow-600/20 text-yellow-300 border-yellow-500/30">
+                    In Progress
+                  </Badge>
+                </div>
+                
+                <div className="mt-4 space-y-3">
+                  <div>
+                    <div className="flex justify-between text-sm text-gray-400 mb-1">
+                      <span>Progress</span>
+                      <span>{Math.round(progressPercentage)}%</span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div
+                        className="bg-yellow-500 h-2 rounded-full"
+                        style={{ width: `${progressPercentage}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-between text-sm">
+                    <div className="text-gray-400">
+                      <span className="text-white font-medium">
+                        {session.currentIndex} / {session.questions.length}
+                      </span> questions
+                    </div>
+                    {session.scores && session.scores.length > 0 && (
+                      <div className="text-gray-400">
+                        Avg Score: <span className="text-purple-400 font-medium">{avgScore.toFixed(1)}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <p className="text-xs text-gray-500">
+                    Last updated: {new Date(session.lastUpdatedAt).toLocaleString()}
+                  </p>
+                  
+                  <Link
+                    href={`/practice?field=${encodeURIComponent(session.field)}&subfield=${encodeURIComponent(session.subField)}&count=${session.questions.length}&resume=true`}
+                    className="w-full mt-2 bg-purple-600/80 hover:bg-purple-500/80 text-white py-2 px-4 rounded-lg flex items-center justify-center text-sm font-medium transition-colors"
+                  >
+                    Resume Session
+                    <ChevronRight className="ml-1 h-4 w-4" />
+                  </Link>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </motion.div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen pt-20 flex items-center justify-center">
@@ -221,6 +379,8 @@ export default function Dashboard() {
         </div>
 
         <PerformanceChart questions={questions} className="mb-8" />
+
+        {renderInProgressSessions()}
 
         <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
@@ -359,7 +519,7 @@ export default function Dashboard() {
           </p>
         </motion.div>
       )}
-        <Footer />
+      <Footer />
     </div>
   );
 }

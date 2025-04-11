@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -85,9 +85,11 @@ const fetchWithRetry = async (url: string, options: RequestInit, maxRetries = 3)
 function PracticeContent() {
   const { userId, isLoaded } = useAuth();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const field = searchParams.get("field");
   const subfield = searchParams.get("subfield");
   const count = searchParams.get("count") || sessionStorage.getItem("expectedQuestionCount") || "10";
+  const resumeSession = searchParams.get("resume") === "true";
   const questionCount = parseInt(count, 10);
   
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -106,6 +108,7 @@ function PracticeContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isFormValid, setIsFormValid] = useState(true);
+  const [progressId, setProgressId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isLoaded) {
@@ -113,32 +116,117 @@ function PracticeContent() {
     }
   }, [isLoaded, userId]);
 
-  useEffect(() => {
-    const fetchQuestions = async () => {
-      try {
-        const response = await fetch(
-          `/api/questions?field=${field}&subfield=${subfield}&count=${questionCount}`
-        );
-        const data = await response.json();
+  // Function to check and load saved progress
+  const checkForSavedProgress = async () => {
+    if (!userId || !field || !subfield || !resumeSession) {
+      fetchQuestions();
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/progress?field=${field}&subfield=${subfield}`);
+      const savedProgress = await response.json();
+      
+      if (savedProgress && savedProgress.questions && savedProgress.questions.length > 0) {
+        // Use the saved question IDs to fetch the full questions
+        const savedQuestionIds = savedProgress.questions;
         
-        if (data.length !== questionCount) {
-          console.error(`Expected ${questionCount} questions but received ${data.length}`);
-          return;
+        // Fetch questions using the regular API for simplicity
+        const questionsResponse = await fetch(
+          `/api/questions?field=${field}&subfield=${subfield}&count=${savedQuestionIds.length}`
+        );
+        const allQuestions = await questionsResponse.json();
+        
+        // Attempt to order questions based on the saved IDs
+        const orderedQuestions: Question[] = [];
+        for (const id of savedQuestionIds) {
+          const found = allQuestions.find((q: Question) => q._id === id);
+          if (found) {
+            orderedQuestions.push(found);
+          }
         }
         
-        setQuestions(data);
+        // If we couldn't find all questions, just use what we got back from the API
+        const questionsToUse = orderedQuestions.length === savedQuestionIds.length 
+          ? orderedQuestions 
+          : allQuestions;
+        
+        // Restore the session state
+        setQuestions(questionsToUse);
+        setCurrentIndex(savedProgress.currentIndex || 0);
+        setScores(savedProgress.scores || []);
+        setTotalTime(savedProgress.totalTime || 0);
+        setStreakCount(savedProgress.streakCount || 0);
         setIsLoading(false);
         setStartTime(new Date());
-      } catch (error) {
-        console.error("Error fetching questions:", error);
-        setIsLoading(false);
+      } else {
+        // No saved progress, fetch new questions
+        fetchQuestions();
       }
-    };
-
-    if (field && subfield) {
+    } catch (error) {
+      console.error("Error checking for saved progress:", error);
       fetchQuestions();
     }
-  }, [field, subfield, questionCount]);
+  };
+
+  // Update useEffect to call this function
+  useEffect(() => {
+    if (userId && field && subfield) {
+      checkForSavedProgress();
+    }
+  }, [userId, field, subfield, resumeSession]);
+
+  const fetchQuestions = async () => {
+    try {
+      const response = await fetch(
+        `/api/questions?field=${field}&subfield=${subfield}&count=${questionCount}`
+      );
+      const data = await response.json();
+      
+      if (data.length !== questionCount) {
+        console.error(`Expected ${questionCount} questions but received ${data.length}`);
+        return;
+      }
+      
+      setQuestions(data);
+      setIsLoading(false);
+      setStartTime(new Date());
+
+      // Save initial progress if user is authenticated
+      if (userId) {
+        saveProgress();
+      }
+    } catch (error) {
+      console.error("Error fetching questions:", error);
+      setIsLoading(false);
+    }
+  };
+
+  // Simplified save progress function
+  const saveProgress = async () => {
+    if (!userId || questions.length === 0) return;
+    
+    try {
+      await fetch('/api/progress', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          field,
+          subField: subfield,
+          questions: questions.map(q => q._id),
+          currentIndex,
+          scores,
+          totalTime,
+          streakCount,
+          isComplete
+        }),
+      });
+    } catch (error) {
+      console.error('Error saving progress:', error);
+    }
+  };
 
   useEffect(() => {
     const savedProgress = sessionStorage.getItem("currentProgress");
@@ -208,19 +296,25 @@ function PracticeContent() {
       // If we get here, the request was successful
       setEvaluationResult(data);
       setCurrentScore(data.score);
-      setScores((prev) => [...prev, data.score]);
+      
+      // Update scores array
+      const newScores = [...scores, data.score];
+      setScores(newScores);
+      
       setIsRevealed(true);
       setTotalTime((prev) => prev + timeTaken);
 
-      if (data.score >= 7) {
-        setStreakCount(prev => prev + 1);
-      } else {
-        setStreakCount(0);
-      }
+      // Update streak
+      const newStreak = data.score >= 7 ? streakCount + 1 : 0;
+      setStreakCount(newStreak);
 
-      if (currentIndex === questions.length - 1) {
-        setIsComplete(true);
-      }
+      const newIsComplete = currentIndex === questions.length - 1;
+      setIsComplete(newIsComplete);
+
+      // Save progress
+      setTimeout(() => {
+        saveProgress();
+      }, 100);
 
       // Show success toast
       toast.success("Answer submitted successfully!", {
@@ -267,16 +361,47 @@ function PracticeContent() {
     }
   }, [userId, isLoading]);
 
+  // Update handleNext to properly save progress
   const handleNext = () => {
     if (currentIndex < questions.length - 1) {
-      setCurrentIndex((prev) => prev + 1);
+      // First increment the index
+      const newIndex = currentIndex + 1;
+      setCurrentIndex(newIndex);
+      
+      // Reset states for next question
       setIsRevealed(false);
       setCurrentScore(null);
       setShowHint(false);
       setStartTime(new Date());
       setAnswer('');
+      
+      // Then save progress with the new index
+      setTimeout(() => {
+        saveProgress();
+      }, 100);
     }
   };
+
+  // Add a save and exit function
+  const handleSaveAndExit = () => {
+    saveProgress();
+    toast.success("Progress saved!", {
+      description: "You can resume this session later from the dashboard."
+    });
+    router.push('/dashboard');
+  };
+
+  // Add beforeunload event to save progress when user leaves
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (userId && !isComplete) {
+        saveProgress();
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [userId, questions, currentIndex, scores, totalTime, streakCount, isComplete]);
 
   const renderProgressHeader = () => (
     <div className="bg-gray-800/50 rounded-lg p-6 backdrop-blur-sm border border-purple-900/20">
@@ -314,7 +439,17 @@ function PracticeContent() {
       />
       <div className="flex justify-between mt-2 text-sm text-gray-400">
         <span>Question {currentIndex + 1} of {questionCount}</span>
-        <span>{Math.round((currentIndex / questionCount) * 100)}% Complete</span>
+        <div className="flex space-x-4">
+          <span>{Math.round((currentIndex / questionCount) * 100)}% Complete</span>
+          {userId && !isComplete && (
+            <button 
+              onClick={handleSaveAndExit}
+              className="text-purple-400 hover:text-purple-300 transition-colors font-medium"
+            >
+              Save & Exit
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
