@@ -5,7 +5,12 @@ import type { NextRequest } from 'next/server';
 // This middleware will run before any API route is executed
 export function middleware(request: NextRequest) {
   // Log API request for debugging
-  console.log(`${request.method} ${request.nextUrl.pathname}`);
+  console.log(`[${new Date().toISOString()}] ${request.method} ${request.nextUrl.pathname}`);
+  
+  // Add additional logging for evaluate endpoint
+  if (request.nextUrl.pathname === '/api/evaluate') {
+    console.log('Processing evaluation request');
+  }
   
   // Check if this is an API route
   if (request.nextUrl.pathname.startsWith('/api/')) {

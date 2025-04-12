@@ -34,6 +34,7 @@ interface Question {
   difficulty: string;
   category: string;
   subcategory: string;
+  userId?: string;
 }
 
 interface EvaluationResult {
@@ -185,6 +186,13 @@ function PracticeContent() {
       const endTime = new Date();
       const timeTaken = startTime ? (endTime.getTime() - startTime.getTime()) / 1000 : 0;
 
+      // Log the data being sent for evaluation
+      console.log("Submitting answer for evaluation:", {
+        questionId: questions[currentIndex]._id,
+        questionUserId: questions[currentIndex].userId,
+        currentUserId: userId
+      });
+
       const requestBody = {
         userAnswer: answer,
         correctAnswer: questions[currentIndex].answer,
@@ -204,6 +212,12 @@ function PracticeContent() {
         },
         body: JSON.stringify(requestBody),
       });
+
+      // Validate that required fields exist in the response
+      if (!data || typeof data.score !== 'number') {
+        console.error("Invalid evaluation response:", data);
+        throw new Error("Invalid evaluation format");
+      }
 
       // If we get here, the request was successful
       setEvaluationResult(data);
@@ -229,23 +243,28 @@ function PracticeContent() {
 
     } catch (error) {
       console.error("Error evaluating answer:", error);
-      // Show specific error message based on the error
+      
       if (error instanceof Error) {
-        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-          toast.error("Network connection issue", {
-            description: "Please check your internet connection and try again",
+        console.error("Error details:", error.message);
+        
+        // More specific error handling
+        if (error.message.includes("Question not found") || error.message.includes("unauthorized access")) {
+          toast.error("Question access error", {
+            description: "This question may no longer be available or you don't have permission to access it."
           });
-        } else if (error.message.includes('Unauthorized') || error.message.includes('401')) {
-          toast.error("Authentication error", {
-            description: "Please sign in again",
-          });
-          // Redirect to sign-in page
-          window.location.href = "/sign-in";
+          // Maybe skip to the next question
+          if (currentIndex < questions.length - 1) {
+            handleNext();
+          }
         } else {
           toast.error("Failed to evaluate answer", {
-            description: "Please try submitting again",
+            description: `Please try submitting again.`
           });
         }
+      } else {
+        toast.error("Unknown error occurred", {
+          description: "Please try submitting again"
+        });
       }
     } finally {
       setIsSubmitting(false);
@@ -534,25 +553,35 @@ function PracticeContent() {
     const averageScore = scores.reduce((a, b) => a + b, 0) / scores.length;
     const averageTime = totalTime / questions.length;
     
+    // Calculate some additional stats
+    const highestScore = Math.max(...scores);
+    const lowestScore = Math.min(...scores);
+    const masteredCount = scores.filter(score => score >= 8).length;
+    const needsWorkCount = scores.filter(score => score < 5).length;
+    
     return (
-      <div className="min-h-screen pt-20">
+      <div className="min-h-screen pt-20 pb-12">
         <div className="container mx-auto px-4">
-          <Card className="max-w-2xl mx-auto bg-gray-800/50 rounded-lg backdrop-blur-sm border border-purple-900/20">
+          <Card className="max-w-4xl mx-auto bg-gray-800/50 rounded-lg backdrop-blur-sm border border-purple-900/20">
             <CardHeader>
               <CardTitle className="text-2xl font-bold text-gray-200 flex items-center space-x-3">
                 <Trophy className="h-6 w-6 text-yellow-400" />
                 <span>Practice Complete!</span>
               </CardTitle>
-            </ CardHeader>
+              <p className="text-gray-400 mt-2">
+                You've completed {questionCount} questions in {field} - {subfield}. Here's how you did:
+              </p>
+            </CardHeader>
             <CardContent>
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-8">
+                {/* Performance Summary Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="bg-gray-900/50 rounded-lg p-4 border border-purple-900/20">
                     <div className="flex items-center space-x-2 mb-2">
                       <BarChart className="h-5 w-5 text-purple-400" />
                       <h3 className="text-gray-300">Average Score</h3>
                     </div>
-                    <p className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-purple-600 text-transparent bg-clip-text">
+                    <p className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-purple-600 text-transparent bg-clip-text">
                       {averageScore.toFixed(1)}/10
                     </p>
                   </div>
@@ -562,56 +591,154 @@ function PracticeContent() {
                       <Clock className="h-5 w-5 text-blue-400" />
                       <h3 className="text-gray-300">Average Time</h3>
                     </div>
-                    <p className="text-4xl font-bold text-blue-400">
+                    <p className="text-3xl font-bold text-blue-400">
                       {Math.round(averageTime)}s
+                    </p>
+                  </div>
+
+                  <div className="bg-gray-900/50 rounded-lg p-4 border border-purple-900/20">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <CheckCircle className="h-5 w-5 text-green-400" />
+                      <h3 className="text-gray-300">Mastered</h3>
+                    </div>
+                    <p className="text-3xl font-bold text-green-400">
+                      {masteredCount}/{questionCount}
+                    </p>
+                  </div>
+
+                  <div className="bg-gray-900/50 rounded-lg p-4 border border-purple-900/20">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Zap className="h-5 w-5 text-yellow-400" />
+                      <h3 className="text-gray-300">Highest Score</h3>
+                    </div>
+                    <p className="text-3xl font-bold text-yellow-400">
+                      {highestScore}/10
                     </p>
                   </div>
                 </div>
 
+                {/* Progress Insights */}
+                <div className="bg-gray-900/30 rounded-lg p-6 border border-purple-900/20">
+                  <h3 className="text-xl font-semibold text-gray-200 mb-4">Your Progress Insights</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-300">Questions Completed:</span>
+                      <span className="text-purple-300 font-medium">{questionCount}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-300">Total Study Time:</span>
+                      <span className="text-purple-300 font-medium">{Math.round(totalTime)}s</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-300">Topics Mastered:</span>
+                      <span className="text-green-400 font-medium">{masteredCount}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-300">Topics Needing Improvement:</span>
+                      <span className="text-amber-400 font-medium">{needsWorkCount}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-300">Streak Count:</span>
+                      <span className="text-yellow-400 font-medium">{streakCount}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Question Breakdown */}
                 <div>
                   <h3 className="text-gray-300 font-medium mb-3 flex items-center">
                     <FileText className="h-5 w-5 mr-2 text-purple-400" />
                     Question Breakdown
                   </h3>
-                  <div className="space-y-3">
+                  <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
                     {scores.map((score, index) => (
-                      <div key={index} className="flex items-center space-x-4">
+                      <div key={index} className="flex items-center space-x-3">
                         <span className="text-gray-400 min-w-[100px]">Question {index + 1}:</span>
-                        <Progress value={score * 10} className="flex-1" />
-                        <span className="text-gray-300 min-w-[50px]">{score}/10</span>
+                        <Progress 
+                          value={score * 10} 
+                          className="flex-1" 
+                          // Add conditional styling based on score
+                          style={{
+                            background: score < 5 ? 'rgba(239, 68, 68, 0.2)' : 
+                                     score < 8 ? 'rgba(234, 179, 8, 0.2)' : 
+                                     'rgba(34, 197, 94, 0.2)'
+                          }}
+                        />
+                        <span className={`font-medium min-w-[50px] ${
+                          score < 5 ? 'text-red-400' : 
+                          score < 8 ? 'text-yellow-400' : 
+                          'text-green-400'
+                        }`}>{score}/10</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="pt-4">
+                {/* Achievements */}
+                <div className="bg-gray-900/30 rounded-lg p-6 border border-purple-900/20">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-2">
-                      <ThumbsUp className="h-5 w-5 text-purple-400" />
-                      <span className="text-gray-300">Achievement Unlocked!</span>
+                      <Trophy className="h-5 w-5 text-yellow-400" />
+                      <span className="text-xl font-semibold text-gray-200">Achievements Unlocked!</span>
                     </div>
-                    <Badge className="bg-purple-500/20 text-purple-200">
-                      Practice Master
-                    </Badge>
                   </div>
                   
-                  <div className="flex space-x-4">
+                  <div className="flex flex-wrap gap-3 mb-4">
+                    <Badge className="bg-purple-500/20 text-purple-200 py-1 px-3">
+                      Practice Master
+                    </Badge>
+                    {averageScore > 7 && (
+                      <Badge className="bg-green-500/20 text-green-200 py-1 px-3">
+                        Expert Level
+                      </Badge>
+                    )}
+                    {streakCount > 3 && (
+                      <Badge className="bg-yellow-500/20 text-yellow-200 py-1 px-3">
+                        Streak Champion
+                      </Badge>
+                    )}
+                    {averageTime < 60 && (
+                      <Badge className="bg-blue-500/20 text-blue-200 py-1 px-3">
+                        Speed Demon
+                      </Badge>
+                    )}
+                    <Badge className="bg-indigo-500/20 text-indigo-200 py-1 px-3">
+                      {field} Explorer
+                    </Badge>
+                  </div>
+
+                  <p className="text-gray-400 mb-6">
+                    Congratulations on completing this practice session! Your progress has been saved to your profile dashboard where you can track your improvement over time.
+                  </p>
+                  
+                  {/* Navigation Buttons */}
+                  <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
+                    <button
+                      onClick={() => window.location.href = '/dashboard'}
+                      className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 
+                                hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl 
+                                p-4 font-medium transition-all duration-200 flex items-center 
+                                justify-center space-x-2"
+                    >
+                      <span>View Your Dashboard</span>
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                    
                     <button
                       onClick={() => window.location.href = '/'}
-                      className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 
-                               hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl 
-                               p-4 font-medium transition-all duration-200 flex items-center 
-                               justify-center space-x-2"
+                      className="flex-1 bg-gray-700 hover:bg-gray-600 text-white rounded-xl 
+                                p-4 font-medium transition-all duration-200 flex items-center 
+                                justify-center space-x-2"
                     >
-                      <span>Practice Another Topic</span>
-                      <ChevronRight className="h-5 w-5" />
+                      <span>Practice New Topic</span>
+                      <BookOpen className="h-5 w-5 ml-2" />
                     </button>
                     
                     <button
                       onClick={() => window.location.reload()}
                       className="flex-1 bg-gray-700 hover:bg-gray-600 text-white rounded-xl 
-                               p-4 font-medium transition-all duration-200 flex items-center 
-                               justify-center space-x-2"
+                                p-4 font-medium transition-all duration-200 flex items-center 
+                                justify-center space-x-2"
                     >
                       <RefreshCw className="h-5 w-5" />
                       <span>Retry This Topic</span>
@@ -625,6 +752,19 @@ function PracticeContent() {
       </div>
     );
   };
+
+  useEffect(() => {
+    if (questions.length > 0 && currentIndex < questions.length) {
+      // Verify question data
+      const currentQuestion = questions[currentIndex];
+      if (!currentQuestion._id) {
+        console.error("Invalid question data:", currentQuestion);
+        toast.error("Invalid question data", {
+          description: "Missing question ID. Please refresh the page."
+        });
+      }
+    }
+  }, [questions, currentIndex]);
 
   if (isLoading) {
     return <LoadingSpinner />;

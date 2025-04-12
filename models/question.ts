@@ -26,6 +26,7 @@ export interface IQuestion extends Document {
   scores: number[];
   averageScore: number;
   timesAnswered: number;
+  isPublic: boolean;
 }
 
 const QuestionSchema = new Schema({
@@ -107,6 +108,10 @@ const QuestionSchema = new Schema({
   timesAnswered: {
     type: Number,
     default: 0
+  },
+  isPublic: {
+    type: Boolean,
+    default: false
   }
 });
 
