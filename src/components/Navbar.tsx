@@ -23,12 +23,6 @@ const Navbar = () => {
             {isSignedIn ? (
               <>
                 <Link
-                  href="/practice"
-                  className="text-gray-300 hover:text-purple-400 transition"
-                >
-                  Practice
-                </Link>
-                <Link
                   href="/dashboard"
                   className="text-gray-300 hover:text-purple-400 transition"
                 >

@@ -220,24 +220,10 @@ export default function Home() {
                   setJobTitle={setJobTitle}
                   jobDescription={jobDescription}
                   setJobDescription={setJobDescription}
-                  groupName={groupName}
-                  setGroupName={setGroupName}
                   error={error}
                   isLoading={isLoading}
                   handleBack={handleBack}
-                >
-                  <div className="mb-4">
-                    <label htmlFor="groupName" className="block text-gray-300 mb-2">Group Name (optional)</label>
-                    <input
-                      id="groupName"
-                      type="text"
-                      value={groupName}
-                      onChange={(e) => setGroupName(e.target.value)}
-                      placeholder="Enter a name for this group of questions"
-                      className="w-full px-4 py-2 rounded-lg bg-gray-800/50 text-white border border-gray-700 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
-                    />
-                  </div>
-                </SelectionPanel>
+                />
               </motion.div>
             )}
           </AnimatePresence>
