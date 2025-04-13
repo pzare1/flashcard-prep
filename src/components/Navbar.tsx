@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { UserButton, SignInButton, useAuth } from "@clerk/nextjs";
+import { SignInButton, useAuth } from "@clerk/nextjs";
 import { Brain } from "lucide-react";
 import { Logo } from "./Logo";
-import { UserCredits } from "./UserCredits";
+import { UserDropdown } from "./UserDropdown";
 
 const Navbar = () => {
   const { isSignedIn } = useAuth();
@@ -28,15 +28,7 @@ const Navbar = () => {
                 >
                   Dashboard
                 </Link>
-                <UserCredits />
-                <UserButton
-                  afterSignOutUrl="/"
-                  appearance={{
-                    elements: {
-                      avatarBox: "w-8 h-8",
-                    },
-                  }}
-                />
+                <UserDropdown />
               </>
             ) : (
               <SignInButton mode="modal">
