@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
               4. Mix of difficulty levels (beginner/intermediate/advanced)`
           }
         ],
-        model: "llama-3.2-90b-vision-preview",
+        model: "llama3-70b-8192",
         temperature: 0.7,
         max_tokens: 8000,
       });

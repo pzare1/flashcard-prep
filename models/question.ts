@@ -13,7 +13,24 @@ export interface IQuestion extends Document {
     userId: string;
     answer: string;
     score: number;
+    feedback?: string;
+    keyPoints?: string[];
+    strengthAreas?: string[];
+    weaknessAreas?: string[];
+    technicalAccuracy?: number;
+    suggestedResources?: string[];
+    practicalApplication?: string;
+    timeTaken?: number;
     timestamp: Date;
+    evaluationResults?: {
+      score: number;
+      time?: number;
+      keyPoints: string[];
+      strengths: string[];
+      improvementAreas: string[];
+      practicalApplication?: string;
+      resources?: string[];
+    };
   }[];
   difficulty: string;
   notes: {
@@ -26,7 +43,7 @@ export interface IQuestion extends Document {
   scores: number[];
   averageScore: number;
   timesAnswered: number;
-  isPublic: boolean;
+  isPublic?: boolean;
 }
 
 const QuestionSchema = new Schema({
@@ -64,7 +81,10 @@ const QuestionSchema = new Schema({
   userAnswer: {
     type: String
   },
-  
+  isPublic: {
+    type: Boolean,
+    default: false
+  },
   attempts: [{
     userId: {
       type: String,
@@ -72,9 +92,26 @@ const QuestionSchema = new Schema({
     },
     answer: String,
     score: Number,
+    feedback: String,
+    keyPoints: [String],
+    strengthAreas: [String],
+    weaknessAreas: [String],
+    technicalAccuracy: Number,
+    suggestedResources: [String],
+    practicalApplication: String,
+    timeTaken: Number,
     timestamp: {
       type: Date,
       default: Date.now
+    },
+    evaluationResults: {
+      score: Number,
+      time: Number,
+      keyPoints: [String],
+      strengths: [String],
+      improvementAreas: [String],
+      practicalApplication: String,
+      resources: [String]
     }
   }],
   difficulty: {
@@ -108,10 +145,6 @@ const QuestionSchema = new Schema({
   timesAnswered: {
     type: Number,
     default: 0
-  },
-  isPublic: {
-    type: Boolean,
-    default: false
   }
 });
 

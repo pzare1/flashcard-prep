@@ -13,14 +13,10 @@ export async function POST(request: NextRequest) {
     // Get the authenticated user
     const { userId } = await auth();
     if (!userId) {
-      console.error("No authenticated user found");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { userAnswer, correctAnswer, questionId, field, subfield, difficulty, timeTaken } = await request.json();
-
-    // Log the incoming request data for debugging
-    console.log(`Evaluation request - questionId: ${questionId}, userId: ${userId}`);
 
     // Input validation
     if (!userAnswer || !correctAnswer || !questionId) {
@@ -41,22 +37,13 @@ export async function POST(request: NextRequest) {
     try {
       await connectToDatabase();
       
-      // First try to find a question owned by the user
-      let question = await Question.findOne({
+      // Find the question and include userId in the query
+      const question = await Question.findOne({
         _id: questionId,
-        userId: userId
+        userId: userId  // This ensures the user owns the question
       });
       
-      // If not found and it might be a public question, try without the userId filter
       if (!question) {
-        question = await Question.findOne({
-          _id: questionId,
-          isPublic: true  // Only find public questions as fallback
-        });
-      }
-      
-      if (!question) {
-        console.error(`Question not found. ID: ${questionId}, User: ${userId}`);
         return NextResponse.json(
           { error: "Question not found or unauthorized access" },
           { status: 403 }
@@ -68,7 +55,7 @@ export async function POST(request: NextRequest) {
         messages: [
           {
             role: "system",
-            content: `You are an advanced academic evaluator with expertise in ${field || 'various fields'}${subfield ? `, particularly in ${subfield}` : ''}. Your job is to evaluate answers and provide feedback in VALID JSON format only.
+            content: `You are an advanced academic evaluator with expertise in ${field || 'various fields'}${subfield ? `, particularly in ${subfield}` : ''}. Your role is to provide comprehensive, constructive, and educational feedback.
 
 Key Evaluation Criteria:
 1. Content Accuracy (40%):
@@ -101,9 +88,7 @@ Additional Evaluation Parameters:
 - Provide specific examples for improvement
 - Include relevant real-world applications
 
-IMPORTANT: Your entire response must be ONLY valid JSON with no other text. Do not include explanations, markdown formatting, or code blocks. Return raw JSON only.
-
-Response Format:
+Response Format (JSON):
 {
   "score": number (0-10, precise to 1 decimal),
   "feedback": string (detailed evaluation),
@@ -144,7 +129,6 @@ Provide a comprehensive evaluation following all specified criteria. Format your
         
         // Try multiple approaches to extract valid JSON
         let jsonStr = content;
-        console.log("Raw content from LLM:", content); // Add this for debugging
         
         // 1. First try to extract JSON if it's inside markdown code blocks
         const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
@@ -159,50 +143,21 @@ Provide a comprehensive evaluation following all specified criteria. Format your
         try {
           evaluation = JSON.parse(jsonStr);
         } catch (firstParseError) {
-          console.log("First parse failed, trying alternative methods");
-          
           // 4. If that fails, try to find the JSON object boundaries
           const objectStart = jsonStr.indexOf('{');
           const objectEnd = jsonStr.lastIndexOf('}');
           
           if (objectStart !== -1 && objectEnd !== -1 && objectEnd > objectStart) {
             const potentialJson = jsonStr.substring(objectStart, objectEnd + 1);
-            try {
-              evaluation = JSON.parse(potentialJson);
-            } catch (secondParseError) {
-              // 5. Last resort: try to manually construct a valid JSON
-              console.log("Second parse failed, trying manual construction");
-              
-              // Extract key-value pairs using regex
-              const scoreMatch = jsonStr.match(/"score"\s*:\s*([0-9.]+)/);
-              const feedbackMatch = jsonStr.match(/"feedback"\s*:\s*"([^"]*)"/);
-              
-              if (scoreMatch && scoreMatch[1]) {
-                // Construct a minimal valid object if we at least have a score
-                evaluation = {
-                  score: parseFloat(scoreMatch[1]),
-                  feedback: feedbackMatch && feedbackMatch[1] ? feedbackMatch[1] : "Feedback unavailable",
-                  keyPoints: [],
-                  strengthAreas: [],
-                  weaknessAreas: []
-                };
-              } else {
-                throw new Error("Could not extract essential data from response");
-              }
-            }
+            evaluation = JSON.parse(potentialJson);
           } else {
             throw firstParseError; // Re-throw if we can't find valid JSON
           }
         }
       } catch (parseError) {
-        if (parseError instanceof Error) {
-          console.error("Parse error:", parseError);
-          console.error("Raw content:", completion.choices[0].message.content);
-          throw new Error("Failed to parse evaluation response: " + parseError.message);
-        } else {
-          console.error("Unknown parse error:", parseError);
-          throw new Error("Failed to parse evaluation response: Unknown error");
-        }
+        console.error("Parse error:", parseError);
+        console.error("Raw content:", completion.choices[0].message.content);
+        throw new Error("Failed to parse evaluation response");
       }
 
       // Validate evaluation data and provide defaults for missing fields
@@ -211,7 +166,7 @@ Provide a comprehensive evaluation following all specified criteria. Format your
         throw new Error(`Invalid score received: ${score}`);
       }
 
-      // Create new attempt record
+      // Create new attempt record with all feedback details
       const newAttempt = {
         userId,
         answer: userAnswer,
@@ -221,8 +176,20 @@ Provide a comprehensive evaluation following all specified criteria. Format your
         keyPoints: Array.isArray(evaluation.keyPoints) ? evaluation.keyPoints : [],
         strengthAreas: Array.isArray(evaluation.strengthAreas) ? evaluation.strengthAreas : [],
         weaknessAreas: Array.isArray(evaluation.weaknessAreas) ? evaluation.weaknessAreas : [],
+        suggestedResources: Array.isArray(evaluation.suggestedResources) ? evaluation.suggestedResources : [],
         technicalAccuracy: evaluation.technicalAccuracy || 0,
-        timestamp: new Date()
+        practicalApplication: evaluation.practicalApplication || "",
+        timestamp: new Date(),
+        // Add the structured evaluation results that match your UI
+        evaluationResults: {
+          score: score,
+          time: timeTaken || 0,
+          keyPoints: Array.isArray(evaluation.keyPoints) ? evaluation.keyPoints : [],
+          strengths: Array.isArray(evaluation.strengthAreas) ? evaluation.strengthAreas : [],
+          improvementAreas: Array.isArray(evaluation.weaknessAreas) ? evaluation.weaknessAreas : [],
+          practicalApplication: evaluation.practicalApplication || "",
+          resources: Array.isArray(evaluation.suggestedResources) ? evaluation.suggestedResources : []
+        }
       };
 
       // Update question statistics
@@ -259,7 +226,9 @@ Provide a comprehensive evaluation following all specified criteria. Format your
         averageTimeTaken,
         difficultyLevel: difficulty || 'standard',
         fieldSpecificFeedback: true,
-        timestamp: newAttempt.timestamp
+        timestamp: newAttempt.timestamp,
+        // Include the structured evaluation results
+        evaluationResults: newAttempt.evaluationResults
       });
 
     } catch (evalError) {
