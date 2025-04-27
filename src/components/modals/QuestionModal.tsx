@@ -601,29 +601,6 @@ export function QuestionModal({ isOpen, onClose, question, onSave }: QuestionMod
               ) : (
                 /* Feedback section */
                 <div>
-                  {question.attempts && question.attempts.length > 0 ? (
-                    <div className="flex items-center justify-between mb-4">
-                      {question.attempts.length > 1 && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-gray-400">Attempt:</span>
-                          <select 
-                            value={selectedAttempt !== null ? selectedAttempt : ''}
-                            onChange={(e) => setSelectedAttempt(Number(e.target.value))}
-                            className="bg-gray-700/50 text-gray-200 rounded-lg px-3 py-1.5
-                                    border border-gray-600 focus:border-purple-500 focus:ring-1 
-                                    focus:ring-purple-500 text-sm"
-                          >
-                            {question.attempts.map((_, index) => (
-                              <option key={index} value={index}>
-                                {index + 1} - {formatDate(new Date(question.attempts![index].timestamp))}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-                    </div>
-                  ) : null}
-                  
                   {renderFeedbackSection()}
                 </div>
               )}
