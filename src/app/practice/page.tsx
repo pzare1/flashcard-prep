@@ -86,9 +86,9 @@ const fetchWithRetry = async (url: string, options: RequestInit, maxRetries = 3)
 function PracticeContent() {
   const { userId, isLoaded } = useAuth();
   const searchParams = useSearchParams();
-  const field = searchParams.get("field");
-  const subfield = searchParams.get("subfield");
-  const count = searchParams.get("count") || sessionStorage.getItem("expectedQuestionCount") || "10";
+  const field = searchParams?.get("field");
+  const subfield = searchParams?.get("subfield");
+  const count = searchParams?.get("count") || sessionStorage.getItem("expectedQuestionCount") || "10";
   const questionCount = parseInt(count, 10);
   
   const [questions, setQuestions] = useState<Question[]>([]);

@@ -30,9 +30,9 @@ interface QuestionDocument {
 }
 
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { questionId: string } }
+  request: NextRequest
 ) {
+  const params = { questionId: request.nextUrl.pathname.split('/').pop() || '' };
   try {
     const { userId } = await auth();
     if (!userId) {

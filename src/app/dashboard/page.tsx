@@ -26,10 +26,19 @@ interface Question {
   difficulty: string;
   score?: number;
   attempts?: Array<{
+    userId: string;
     answer: string;
     score: number;
     timestamp: Date;
     _id: string;
+    feedback?: string;
+    timeTaken?: number; // Changed from number | null to just number
+    keyPoints?: string[];
+    strengthAreas?: string[];
+    weaknessAreas?: string[];
+    improvement?: string;
+    practicalApplication?: string;
+    suggestedResources?: string[];
   }>;
   notes?: Array<{
     id: string;

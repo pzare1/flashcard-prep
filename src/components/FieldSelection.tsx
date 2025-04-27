@@ -11,7 +11,7 @@ interface FieldSelectionProps {
 export const FieldSelection = ({ onFieldSelect }: FieldSelectionProps) => {
   return (
     <>
-      {Object.entries(fields).map(([field, { icon: Icon, color }]) => (
+      {Object.entries(fields).map(([field, { icon: Icon }]) => (
         <motion.button
           key={field}
           variants={cardVariants}
@@ -23,7 +23,7 @@ export const FieldSelection = ({ onFieldSelect }: FieldSelectionProps) => {
                     overflow-hidden`}
         >
           <div className="relative z-10">
-            <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${color} 
+            <div className={`w-16 h-16 rounded-xl bg-gradient-to-br 
                           p-3 mb-6 shadow-lg transform group-hover:scale-110 transition-transform`}>
               <Icon className="w-full h-full text-white" />
             </div>
