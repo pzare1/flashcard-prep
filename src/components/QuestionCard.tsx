@@ -2,12 +2,18 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Eye, MessageSquare, TrendingUp, Star, BarChart2, Clock } from "lucide-react";
+import { Eye, MessageSquare, TrendingUp, Star, BarChart2, Clock, CheckCircle, AlertCircle } from "lucide-react";
 
 interface Attempt {
   answer: string;
   score: number;
   timestamp: Date;
+  feedback?: string;
+  keyPoints?: string[];
+  strengthAreas?: string[];
+  weaknessAreas?: string[];
+  suggestedResources?: string[];
+  practicalApplication?: string;
 }
 
 interface QuestionCardProps {
@@ -55,6 +61,18 @@ export function QuestionCard({ question, onOpen }: QuestionCardProps) {
     return "text-red-300";
   };
 
+  // Check if the question has feedback data
+  const hasFeedbackData = question.attempts && question.attempts.length > 0 && (
+    question.attempts.some(attempt => 
+      attempt.feedback || 
+      (attempt.keyPoints && attempt.keyPoints.length > 0) ||
+      (attempt.strengthAreas && attempt.strengthAreas.length > 0) ||
+      (attempt.weaknessAreas && attempt.weaknessAreas.length > 0) ||
+      (attempt.suggestedResources && attempt.suggestedResources.length > 0) ||
+      attempt.practicalApplication
+    )
+  );
+
   return (
     <motion.div
       layout
@@ -75,12 +93,21 @@ export function QuestionCard({ question, onOpen }: QuestionCardProps) {
         {/* Header with question text */}
         <div className="flex justify-between items-start gap-4">
           <h3 className="text-lg font-medium text-gray-100 leading-tight">{question.question}</h3>
-          {question.notes && question.notes.length > 0 && (
-            <div className="flex items-center gap-1 px-2 py-1 bg-gray-700/40 rounded-full">
-              <MessageSquare className="w-3.5 h-3.5 text-purple-300" />
-              <span className="text-xs font-medium text-gray-300">{question.notes.length}</span>
-            </div>
-          )}
+          <div className="flex items-center gap-1.5">
+            {question.notes && question.notes.length > 0 && (
+              <div className="flex items-center gap-1 px-2 py-1 bg-gray-700/40 rounded-full">
+                <MessageSquare className="w-3.5 h-3.5 text-purple-300" />
+                <span className="text-xs font-medium text-gray-300">{question.notes.length}</span>
+              </div>
+            )}
+            
+            {hasFeedbackData && (
+              <div className="flex items-center gap-1 px-2 py-1 bg-gray-700/40 rounded-full">
+                <CheckCircle className="w-3.5 h-3.5 text-green-300" />
+                <span className="text-xs font-medium text-gray-300">Feedback</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Tags */}

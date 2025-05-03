@@ -37,7 +37,7 @@ export const SelectionPanel = ({
   error,
   isLoading,
   handleBack,
-  handleStart
+  handleStart,
 }: SelectionPanelProps) => {
   return (
     <div>

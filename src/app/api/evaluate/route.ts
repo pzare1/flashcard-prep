@@ -166,7 +166,7 @@ Provide a comprehensive evaluation following all specified criteria. Format your
         throw new Error(`Invalid score received: ${score}`);
       }
 
-      // Create new attempt record
+      // Create new attempt record with all feedback details
       const newAttempt = {
         userId,
         answer: userAnswer,
@@ -176,8 +176,20 @@ Provide a comprehensive evaluation following all specified criteria. Format your
         keyPoints: Array.isArray(evaluation.keyPoints) ? evaluation.keyPoints : [],
         strengthAreas: Array.isArray(evaluation.strengthAreas) ? evaluation.strengthAreas : [],
         weaknessAreas: Array.isArray(evaluation.weaknessAreas) ? evaluation.weaknessAreas : [],
+        suggestedResources: Array.isArray(evaluation.suggestedResources) ? evaluation.suggestedResources : [],
         technicalAccuracy: evaluation.technicalAccuracy || 0,
-        timestamp: new Date()
+        practicalApplication: evaluation.practicalApplication || "",
+        timestamp: new Date(),
+        // Add the structured evaluation results that match your UI
+        evaluationResults: {
+          score: score,
+          time: timeTaken || 0,
+          keyPoints: Array.isArray(evaluation.keyPoints) ? evaluation.keyPoints : [],
+          strengths: Array.isArray(evaluation.strengthAreas) ? evaluation.strengthAreas : [],
+          improvementAreas: Array.isArray(evaluation.weaknessAreas) ? evaluation.weaknessAreas : [],
+          practicalApplication: evaluation.practicalApplication || "",
+          resources: Array.isArray(evaluation.suggestedResources) ? evaluation.suggestedResources : []
+        }
       };
 
       // Update question statistics
@@ -214,7 +226,9 @@ Provide a comprehensive evaluation following all specified criteria. Format your
         averageTimeTaken,
         difficultyLevel: difficulty || 'standard',
         fieldSpecificFeedback: true,
-        timestamp: newAttempt.timestamp
+        timestamp: newAttempt.timestamp,
+        // Include the structured evaluation results
+        evaluationResults: newAttempt.evaluationResults
       });
 
     } catch (evalError) {

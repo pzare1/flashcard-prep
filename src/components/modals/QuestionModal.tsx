@@ -2,13 +2,58 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Edit2, Save, Plus, Trash2, BookOpen, MessageSquare, Calendar, CheckCircle, AlertCircle } from "lucide-react";
+import {
+  X,
+  Edit2,
+  Save,
+  Plus,
+  Trash2,
+  BookOpen,
+  MessageSquare,
+  Calendar,
+  CheckCircle,
+  AlertCircle,
+  Target,
+  BarChart2,
+  Zap,
+  Book,
+  ThumbsUp,
+  Eye,
+  Clock
+} from "lucide-react";
 import { toast } from "sonner";
+import { Progress } from "@/components/ui/progress";
 
 interface Note {
   id: string;
   content: string;
   createdAt: Date;
+}
+
+interface EvaluationResults {
+  score: number;
+  time?: number;
+  keyPoints: string[];
+  strengths: string[];
+  improvementAreas: string[];
+  practicalApplication?: string;
+  resources?: string[];
+}
+
+interface Attempt {
+  userId: string;
+  answer: string;
+  score: number;
+  feedback?: string;
+  keyPoints?: string[];
+  strengthAreas?: string[];
+  weaknessAreas?: string[];
+  technicalAccuracy?: number;
+  suggestedResources?: string[];
+  practicalApplication?: string;
+  timeTaken?: number;
+  timestamp: Date;
+  evaluationResults?: EvaluationResults;
 }
 
 interface QuestionModalProps {
@@ -24,6 +69,8 @@ interface QuestionModalProps {
     subField: string;
     difficulty: string;
     notes?: Note[];
+    attempts?: Attempt[];
+    averageScore?: number;
   };
   onSave: (questionId: string, data: { answer?: string; notes?: Note[] }) => void;
 }
@@ -34,7 +81,8 @@ export function QuestionModal({ isOpen, onClose, question, onSave }: QuestionMod
   const [notes, setNotes] = useState<Note[]>(question.notes || []);
   const [newNote, setNewNote] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'answer' | 'notes'>('answer');
+  const [activeTab, setActiveTab] = useState<'answer' | 'notes' | 'feedback'>('answer');
+  const [selectedAttempt, setSelectedAttempt] = useState<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const noteInputRef = useRef<HTMLInputElement>(null);
 
@@ -52,6 +100,13 @@ export function QuestionModal({ isOpen, onClose, question, onSave }: QuestionMod
       noteInputRef.current.focus();
     }
   }, [activeTab]);
+
+  // Select the most recent attempt by default when the feedback tab is selected
+  useEffect(() => {
+    if (activeTab === 'feedback' && question.attempts && question.attempts.length > 0 && selectedAttempt === null) {
+      setSelectedAttempt(question.attempts.length - 1);
+    }
+  }, [activeTab, question.attempts, selectedAttempt]);
 
   const handleSave = async () => {
     try {
@@ -135,6 +190,199 @@ export function QuestionModal({ isOpen, onClose, question, onSave }: QuestionMod
     });
   };
 
+  // Get score color based on value
+  const getScoreColor = (score: number) => {
+    if (score >= 8) return "text-green-400";
+    if (score >= 5) return "text-yellow-400";
+    return "text-red-400";
+  };
+
+  // Get progress bar color based on score
+  const getProgressColor = (score: number) => {
+    if (score >= 8) return "bg-gradient-to-r from-green-500 to-green-600";
+    if (score >= 5) return "bg-gradient-to-r from-yellow-500 to-yellow-600";
+    return "bg-gradient-to-r from-red-500 to-red-600";
+  };
+
+  // Function to determine if we should use evaluationResults or the older fields
+  const getAttemptDetails = (attempt: Attempt) => {
+    if (attempt.evaluationResults) {
+      return {
+        score: attempt.evaluationResults.score,
+        timeTaken: attempt.evaluationResults.time,
+        keyPoints: attempt.evaluationResults.keyPoints,
+        strengths: attempt.evaluationResults.strengths,
+        weaknessAreas: attempt.evaluationResults.improvementAreas,
+        practicalApplication: attempt.evaluationResults.practicalApplication,
+        suggestedResources: attempt.evaluationResults.resources,
+      };
+    }
+    
+    // Fallback to older fields
+    return {
+      score: attempt.score,
+      timeTaken: attempt.timeTaken,
+      keyPoints: attempt.keyPoints || [],
+      strengths: attempt.strengthAreas || [],
+      weaknessAreas: attempt.weaknessAreas || [],
+      practicalApplication: attempt.practicalApplication,
+      suggestedResources: attempt.suggestedResources || [],
+    };
+  };
+
+  const renderFeedbackSection = () => {
+    if (!question.attempts || question.attempts.length === 0 || selectedAttempt === null) {
+      return (
+        <div className="text-center py-10">
+          <Eye className="w-16 h-16 text-gray-700 mx-auto mb-4" />
+          <h4 className="text-xl text-gray-400 mb-2">No Attempts Yet</h4>
+          <p className="text-gray-500 max-w-md mx-auto">
+            You haven't attempted to answer this question yet. Practice this question to receive feedback on your performance.
+          </p>
+        </div>
+      );
+    }
+    
+    const attempt = question.attempts[selectedAttempt];
+    const details = getAttemptDetails(attempt);
+    
+    return (
+      <div className="space-y-6">
+        <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700/50 shadow-md">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <BarChart2 className="w-5 h-5 text-purple-400" />
+              Evaluation Results
+            </h2>
+            
+            <div className="flex flex-wrap gap-3">
+              <div className="flex flex-col items-center bg-gray-800/80 rounded-lg px-4 py-2 border border-gray-700/70">
+                <span className="text-sm text-gray-400">Score</span>
+                <span className={`text-xl font-bold ${getScoreColor(details.score)}`}>
+                  {details.score.toFixed(1)}/10
+                </span>
+              </div>
+              
+              {details.timeTaken && (
+                <div className="flex flex-col items-center bg-gray-800/80 rounded-lg px-4 py-2 border border-gray-700/70">
+                  <span className="text-sm text-gray-400">Time</span>
+                  <span className="text-xl font-bold text-blue-400">
+                    {Math.round(details.timeTaken)}s
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50 mb-6">
+            <h3 className="text-gray-300 font-medium mb-2">Your Answer</h3>
+            <p className="text-gray-400 whitespace-pre-wrap">{attempt.answer}</p>
+          </div>
+          
+          {/* Key Points */}
+          <div className="space-y-1 mb-6">
+            <h3 className="text-gray-200 font-medium flex items-center gap-2">
+              <Target className="w-4 h-4 text-purple-400" />
+              Key Points
+            </h3>
+            
+            {details.keyPoints && details.keyPoints.length > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {details.keyPoints.map((point, idx) => (
+                  <span key={idx} className="px-3 py-1 bg-purple-500/10 text-purple-300 border border-purple-500/30 rounded-full text-sm">
+                    {point}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 italic">No key points available</p>
+            )}
+          </div>
+          
+          {/* Strengths & Areas for Improvement */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <h3 className="text-gray-200 font-medium flex items-center gap-2 mb-3">
+                <CheckCircle className="w-4 h-4 text-green-400" />
+                Strengths
+              </h3>
+              
+              {details.strengths && details.strengths.length > 0 ? (
+                <ul className="space-y-2">
+                  {details.strengths.map((strength, idx) => (
+                    <li key={idx} className="flex items-start gap-2 text-gray-300">
+                      <div className="min-w-4 h-4 mt-1">
+                        <div className="w-1.5 h-1.5 bg-green-400 rounded-full"></div>
+                      </div>
+                      <span>{strength}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-gray-500 italic">No strengths specified</p>
+              )}
+            </div>
+            
+            <div>
+              <h3 className="text-gray-200 font-medium flex items-center gap-2 mb-3">
+                <AlertCircle className="w-4 h-4 text-amber-400" />
+                Areas for Improvement
+              </h3>
+              
+              {details.weaknessAreas && details.weaknessAreas.length > 0 ? (
+                <ul className="space-y-2">
+                  {details.weaknessAreas.map((weakness, idx) => (
+                    <li key={idx} className="flex items-start gap-2 text-gray-300">
+                      <div className="min-w-4 h-4 mt-1">
+                        <div className="w-1.5 h-1.5 bg-amber-400 rounded-full"></div>
+                      </div>
+                      <span>{weakness}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-gray-500 italic">No areas for improvement specified</p>
+              )}
+            </div>
+          </div>
+          
+          {/* Practical Application */}
+          {details.practicalApplication && (
+            <div className="mb-6">
+              <h3 className="text-gray-200 font-medium flex items-center gap-2 mb-3">
+                <Zap className="w-4 h-4 text-yellow-400" />
+                Practical Application
+              </h3>
+              <p className="text-gray-300 bg-gray-800/50 p-4 rounded-lg border border-gray-700/50">
+                {details.practicalApplication}
+              </p>
+            </div>
+          )}
+          
+          {/* Resources for Further Learning */}
+          {details.suggestedResources && details.suggestedResources.length > 0 && (
+            <div>
+              <h3 className="text-gray-200 font-medium flex items-center gap-2 mb-3">
+                <Book className="w-4 h-4 text-blue-400" />
+                Resources for Further Learning
+              </h3>
+              <ul className="space-y-2">
+                {details.suggestedResources.map((resource, idx) => (
+                  <li key={idx} className="flex items-start gap-2 text-gray-300">
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 text-xs font-medium flex-shrink-0">
+                      {idx + 1}
+                    </span>
+                    <span>{resource}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -175,7 +423,7 @@ export function QuestionModal({ isOpen, onClose, question, onSave }: QuestionMod
               <h2 className="text-xl font-semibold text-white">{question.question}</h2>
             </div>
             
-            {/* Tabs for switching between answer and notes */}
+            {/* Tabs for switching between answer, notes, and feedback */}
             <div className="flex border-b border-gray-700/50">
               <button
                 onClick={() => setActiveTab('answer')}
@@ -198,6 +446,17 @@ export function QuestionModal({ isOpen, onClose, question, onSave }: QuestionMod
               >
                 <MessageSquare className="w-4 h-4" />
                 Notes {notes.length > 0 && `(${notes.length})`}
+              </button>
+              <button
+                onClick={() => setActiveTab('feedback')}
+                className={`flex items-center gap-2 px-6 py-3 transition-colors ${
+                  activeTab === 'feedback' 
+                    ? 'text-purple-300 border-b-2 border-purple-500'
+                    : 'text-gray-400 hover:text-gray-300'
+                }`}
+              >
+                <BarChart2 className="w-4 h-4" />
+                Feedback {question.attempts && question.attempts.length > 0 && `(${question.attempts.length})`}
               </button>
               
               {/* Close button */}
@@ -262,7 +521,7 @@ export function QuestionModal({ isOpen, onClose, question, onSave }: QuestionMod
                     </div>
                   )}
                 </div>
-              ) : (
+              ) : activeTab === 'notes' ? (
                 /* Notes section */
                 <div className="space-y-5">
                   <div className="flex items-center justify-between mb-4">
@@ -338,6 +597,11 @@ export function QuestionModal({ isOpen, onClose, question, onSave }: QuestionMod
                       </div>
                     )}
                   </AnimatePresence>
+                </div>
+              ) : (
+                /* Feedback section */
+                <div>
+                  {renderFeedbackSection()}
                 </div>
               )}
             </div>

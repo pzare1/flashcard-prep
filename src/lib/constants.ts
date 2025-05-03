@@ -34,7 +34,6 @@ import {
     },
     "Data Science": {
       icon: ChartBarBig,
-      color: "from-purple-400 to-pink-600",
       subFields: [
         "Machine Learning",
         "Deep Learning",

@@ -63,6 +63,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
+  const [groupName, setGroupName] = useState("");
   const router = useRouter();
 
   const handleQuestionCountChange = useCallback((count: number) => {
@@ -104,7 +105,8 @@ export default function Home() {
           subField: selectedSubField,
           count: questionCount,
           jobTitle: jobTitle.trim(),
-          jobDescription: jobDescription.trim()
+          jobDescription: jobDescription.trim(),
+          groupName: groupName.trim() || `${selectedField} - ${selectedSubField} Questions`
         }),
       });
   
@@ -133,7 +135,7 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedField, selectedSubField, questionCount, jobTitle, jobDescription, isSignedIn, router, validateSelections]);
+  }, [selectedField, selectedSubField, questionCount, jobTitle, jobDescription, groupName, isSignedIn, router, validateSelections]);
 
   const handleFieldSelect = useCallback((field: string) => {
     setSelectedField(field);
@@ -212,6 +214,7 @@ export default function Home() {
                   selectedSubField={selectedSubField}
                   setSelectedSubField={setSelectedSubField}
                   questionCount={questionCount}
+                  handleStart={handleStart}
                   handleQuestionCountChange={handleQuestionCountChange}
                   jobTitle={jobTitle}
                   setJobTitle={setJobTitle}
@@ -220,7 +223,6 @@ export default function Home() {
                   error={error}
                   isLoading={isLoading}
                   handleBack={handleBack}
-                  handleStart={handleStart}
                 />
               </motion.div>
             )}
