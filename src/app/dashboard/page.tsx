@@ -11,7 +11,8 @@ import {
   Award, 
   Clock, 
   BrainCircuit,
-  SlidersHorizontal 
+  SlidersHorizontal,
+  RefreshCw
 } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import PerformanceChart from "../../components/ModernPerformanceChart";
@@ -61,6 +62,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [questionGroups, setQuestionGroups] = useState<any[]>([]);
+  const [loadingGroups, setLoadingGroups] = useState(true);
   const itemsPerPage = 10; // Number of questions to show per page
 
   useEffect(() => {
@@ -78,6 +81,25 @@ export default function Dashboard() {
     };
 
     fetchQuestions();
+  }, [userId]);
+  
+  useEffect(() => {
+    const fetchQuestionGroups = async () => {
+      if (!userId) return;
+      try {
+        const response = await fetch('/api/questionGroups');
+        if (response.ok) {
+          const data = await response.json();
+          setQuestionGroups(data);
+        }
+      } catch (error) {
+        console.error('Error fetching question groups:', error);
+      } finally {
+        setLoadingGroups(false);
+      }
+    };
+    
+    fetchQuestionGroups();
   }, [userId]);
 
   const handleSaveQuestion = async (questionId: string, data: any) => {
@@ -305,6 +327,62 @@ export default function Dashboard() {
             </div>
           </motion.div>
         </div>
+        
+        {/* Resume Session Section */}
+        {questionGroups.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50 mb-8"
+          >
+            <h3 className="text-xl font-bold text-white flex items-center mb-4">
+              <RefreshCw className="w-6 h-6 mr-2 text-purple-400" />
+              Resume Sessions
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {questionGroups.map((group) => (
+                <div 
+                  key={group._id}
+                  className="bg-gray-700/30 rounded-lg p-4 border border-purple-900/20 hover:border-purple-500/50 transition-colors cursor-pointer"
+                  onClick={() => window.location.href = `/practice?groupId=${group._id}`}
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="text-gray-200 font-medium">{group.name}</h4>
+                      <p className="text-gray-400 text-sm">
+                        {group.currentIndex} of {group.questions.length} completed
+                      </p>
+                    </div>
+                    <div className="bg-purple-500/30 text-purple-300 px-3 py-1 rounded-full text-xs flex items-center">
+                      <RefreshCw className="w-3 h-3 mr-1" />
+                      Resume
+                    </div>
+                  </div>
+                  
+                  <div className="mt-3">
+                    <div className="bg-gray-800/50 rounded-full h-2 overflow-hidden">
+                      <div 
+                        className="bg-gradient-to-r from-purple-500 to-indigo-500 h-full"
+                        style={{ width: `${(group.currentIndex / group.questions.length) * 100}%` }}
+                      ></div>
+                    </div>
+                    <div className="flex justify-between mt-1">
+                      <span className="text-xs text-gray-500">
+                        {Math.round((group.currentIndex / group.questions.length) * 100)}% Complete
+                      </span>
+                      {group.lastAccessedAt && (
+                        <span className="text-xs text-gray-500">
+                          Last used: {new Date(group.lastAccessedAt).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
 
         <PerformanceChart questions={questions} className="mb-8" />
 

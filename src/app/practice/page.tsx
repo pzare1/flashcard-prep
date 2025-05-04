@@ -90,6 +90,7 @@ function PracticeContent() {
   const subfield = searchParams?.get("subfield");
   const count = searchParams?.get("count") || sessionStorage.getItem("expectedQuestionCount") || "10";
   const questionCount = parseInt(count, 10);
+  const groupId = searchParams?.get("groupId") || null;
   
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -107,6 +108,7 @@ function PracticeContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isFormValid, setIsFormValid] = useState(true);
+  const [questionGroupId, setQuestionGroupId] = useState<string | null>(groupId);
 
   useEffect(() => {
     if (isLoaded) {
@@ -117,6 +119,28 @@ function PracticeContent() {
   useEffect(() => {
     const fetchQuestions = async () => {
       try {
+        // If we have a groupId, fetch that specific question group
+        if (groupId && userId) {
+          const response = await fetch(`/api/questionGroups/${groupId}`);
+          if (response.ok) {
+            const groupData = await response.json();
+            
+            // Fetch all questions in this group
+            const questionPromises = groupData.questions.map((qId: string) => 
+              fetch(`/api/questions/${qId}`).then(res => res.json())
+            );
+            
+            const fetchedQuestions = await Promise.all(questionPromises);
+            setQuestions(fetchedQuestions);
+            setCurrentIndex(groupData.currentIndex);
+            setScores(groupData.scores);
+            setIsLoading(false);
+            setStartTime(new Date());
+            return;
+          }
+        }
+        
+        // Otherwise fetch new questions
         const response = await fetch(
           `/api/questions?field=${field}&subfield=${subfield}&count=${questionCount}`
         );
@@ -128,6 +152,32 @@ function PracticeContent() {
         }
         
         setQuestions(data);
+        
+        // Create a new question group if user is authenticated
+        if (userId && data.length > 0) {
+          try {
+            const groupResponse = await fetch('/api/questionGroups', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                name: `${field} - ${subfield}`,
+                field,
+                subField: subfield,
+                questions: data.map((q: Question) => q._id)
+              })
+            });
+            
+            if (groupResponse.ok) {
+              const newGroup = await groupResponse.json();
+              setQuestionGroupId(newGroup._id);
+            }
+          } catch (error) {
+            console.error('Error creating question group:', error);
+          }
+        }
+        
         setIsLoading(false);
         setStartTime(new Date());
       } catch (error) {
@@ -136,10 +186,35 @@ function PracticeContent() {
       }
     };
 
-    if (field && subfield) {
+    if ((field && subfield) || groupId) {
       fetchQuestions();
     }
-  }, [field, subfield, questionCount]);
+  }, [field, subfield, questionCount, groupId, userId]);
+  
+  useEffect(() => {
+    // Update question group progress
+    const updateGroupProgress = async () => {
+      if (!questionGroupId || !userId) return;
+      
+      try {
+        await fetch(`/api/questionGroups/${questionGroupId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            currentIndex,
+            scores,
+            completed: isComplete
+          })
+        });
+      } catch (error) {
+        console.error('Error updating question group:', error);
+      }
+    };
+    
+    updateGroupProgress();
+  }, [currentIndex, scores, isComplete, questionGroupId, userId]);
 
   useEffect(() => {
     const savedProgress = sessionStorage.getItem("currentProgress");
@@ -294,6 +369,22 @@ function PracticeContent() {
       setShowHint(false);
       setStartTime(new Date());
       setAnswer('');
+    } else {
+      setIsComplete(true);
+      // Mark the question group as completed
+      if (questionGroupId && userId) {
+        fetch(`/api/questionGroups/${questionGroupId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            completed: true
+          })
+        }).catch(error => {
+          console.error('Error completing question group:', error);
+        });
+      }
     }
   };
 
