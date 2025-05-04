@@ -1,10 +1,22 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useInView, animate } from "framer-motion";
 import { useAuth } from "@clerk/nextjs";
-import { ChevronRight, ChevronLeft, Star, Users, Award, Bookmark, AlertCircle } from "lucide-react";
+import { 
+  ChevronRight, 
+  ChevronLeft, 
+  Star, 
+  Users, 
+  Award, 
+  Bookmark, 
+  AlertCircle,
+  BrainCircuit,
+  Database,
+  Target,
+  Zap
+} from "lucide-react";
 
 import { AuthModal } from "@/components/auth/auth-modal";
 import { Logo } from "@/components/Logo";
@@ -52,6 +64,28 @@ const testimonials = [
   }
 ];
 
+// Helper component for animated numbers
+function AnimatedNumber({ value }: { value: number }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const isInView = useInView(ref, { once: true, margin: "-100px" });
+  const [displayValue, setDisplayValue] = useState(0);
+
+  useEffect(() => {
+    if (isInView && ref.current) {
+      const controls = animate(0, value, {
+        duration: 2,
+        ease: "easeOut",
+        onUpdate(latest) {
+          setDisplayValue(Math.floor(latest));
+        }
+      });
+      return () => controls.stop();
+    }
+  }, [isInView, value]);
+
+  return <span ref={ref}>{displayValue.toLocaleString()}</span>;
+}
+
 export default function Home() {
   const { isSignedIn } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -65,6 +99,7 @@ export default function Home() {
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
   const [groupName, setGroupName] = useState("");
   const router = useRouter();
+  const selectionAreaRef = useRef<HTMLDivElement>(null);
 
   const handleQuestionCountChange = useCallback((count: number) => {
     setQuestionCount(count);
@@ -149,12 +184,12 @@ export default function Home() {
     setError(null);
   }, []);
 
-  const nextTestimonial = useCallback(() => {
-    setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
+  const scrollToSelection = useCallback(() => {
+    selectionAreaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
-  const prevTestimonial = useCallback(() => {
-    setCurrentTestimonial((prev) => (prev - 1 + testimonials.length) % testimonials.length);
+  const nextTestimonial = useCallback(() => {
+    setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
   }, []);
 
   // Automatically advance testimonials
@@ -165,94 +200,192 @@ export default function Home() {
 
   return (
     <>
-      <div className="min-h-screen bg-gray-900">
+      <div className="min-h-screen bg-gray-900 text-white overflow-x-hidden">
         <div className="container mx-auto px-4">
-          <div className="text-center pt-24 pb-16">
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-6 mt-10">
-              Interview Preparation Platform
-            </h1>
-            <p className="text-lg text-gray-300 opacity-60 max-w-2xl mx-auto mb-8">
-              Master your next interview with AI-powered practice questions tailored to your field, specialization, and specific job requirements.
-            </p>
-            <div className="flex justify-center gap-4 mb-8">
-              <div className="flex items-center bg-purple-900/30 px-4 py-2 rounded-lg border border-purple-700/50">
-                <span className="text-purple-400 font-medium">12+ Professional Fields</span>
+          {/* Hero Section */}
+          <div className="text-center pt-28 pb-20 md:pt-36 md:pb-24">
+            <motion.h1
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="text-2xl md:text-5xl font-bold mb-6"
+            >
+              Ace Your Interviews with <span className="text-purple-400">AI-Powered Practice</span>
+            </motion.h1>
+            <motion.p 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="text-lg md:text-md text-gray-300 opacity-80 max-w-3xl mx-auto mb-10"
+            >
+              Generate hyper-realistic interview questions tailored to your specific field, specialization, and target job description.
+            </motion.p>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-12"
+            >
+              <button 
+                onClick={scrollToSelection}
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-8 py-3 rounded-lg font-semibold text-lg hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 shadow-lg shadow-purple-500/30"
+              >
+                Start Practicing Now
+              </button>
+            </motion.div>
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="flex flex-wrap justify-center gap-4"
+            >
+              <div className="flex items-center bg-purple-900/30 px-4 py-2 rounded-lg border border-purple-700/50 backdrop-blur-sm">
+                <Zap size={16} className="text-purple-400 mr-2" /> 
+                <span className="text-purple-400 font-medium">Instant AI Generation</span>
               </div>
-              <div className="flex items-center bg-blue-900/30 px-4 py-2 rounded-lg border border-blue-700/50">
+              <div className="flex items-center bg-blue-900/30 px-4 py-2 rounded-lg border border-blue-700/50 backdrop-blur-sm">
+                <Database size={16} className="text-blue-400 mr-2" />
                 <span className="text-blue-400 font-medium">140+ Specializations</span>
               </div>
-              <div className="flex items-center bg-green-900/30 px-4 py-2 rounded-lg border border-green-700/50">
-                <span className="text-green-400 font-medium">Personalized Questions</span>
+              <div className="flex items-center bg-green-900/30 px-4 py-2 rounded-lg border border-green-700/50 backdrop-blur-sm">
+                <Target size={16} className="text-green-400 mr-2" />
+                <span className="text-green-400 font-medium">Job-Specific Questions</span>
               </div>
-            </div>
+            </motion.div>
           </div>
 
           {/* Main Selection Area */}
-          <AnimatePresence mode="wait">
-            {!selectedField ? (
-              <motion.div
-                key="field-selection"
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto"
-              >
-                <FieldSelection onFieldSelect={handleFieldSelect} />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="selection-panel"
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-                className="max-w-4xl mx-auto bg-gray-800/70 backdrop-blur-lg rounded-2xl p-8 border border-gray-700"
-              >
-                <SelectionPanel 
-                  selectedField={selectedField}
-                  selectedSubField={selectedSubField}
-                  setSelectedSubField={setSelectedSubField}
-                  questionCount={questionCount}
-                  handleStart={handleStart}
-                  handleQuestionCountChange={handleQuestionCountChange}
-                  jobTitle={jobTitle}
-                  setJobTitle={setJobTitle}
-                  jobDescription={jobDescription}
-                  setJobDescription={setJobDescription}
-                  error={error}
-                  isLoading={isLoading}
-                  handleBack={handleBack}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <div ref={selectionAreaRef} id="selection-area" className="py-16">
+            <AnimatePresence mode="wait">
+              {!selectedField ? (
+                <motion.div
+                  key="field-selection"
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto"
+                >
+                  <FieldSelection onFieldSelect={handleFieldSelect} />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="selection-panel"
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                  className="max-w-4xl mx-auto bg-gray-800/70 backdrop-blur-lg rounded-2xl p-6 md:p-8 border border-gray-700 shadow-xl"
+                >
+                  <SelectionPanel 
+                    selectedField={selectedField}
+                    selectedSubField={selectedSubField}
+                    setSelectedSubField={setSelectedSubField}
+                    questionCount={questionCount}
+                    handleStart={handleStart}
+                    handleQuestionCountChange={handleQuestionCountChange}
+                    jobTitle={jobTitle}
+                    setJobTitle={setJobTitle}
+                    jobDescription={jobDescription}
+                    setJobDescription={setJobDescription}
+                    error={error}
+                    isLoading={isLoading}
+                    handleBack={handleBack}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
           
+          {/* Interactive Stats Section */}
+          <div className="max-w-5xl mx-auto py-20 md:py-28 text-center">
+             <h2 className="text-3xl md:text-4xl font-bold text-white mb-12">
+              Preparation at Scale
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 md:gap-12">
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-100px" }}
+                transition={{ duration: 0.5 }}
+                className="bg-gray-800/50 p-6 rounded-xl border border-gray-700"
+              >
+                <Database className="w-10 h-10 text-blue-400 mx-auto mb-4" />
+                <div className="text-4xl font-bold text-blue-400 mb-2">
+                   <AnimatedNumber value={12} />+
+                </div>
+                <p className="text-gray-400">Professional Fields Covered</p>
+              </motion.div>
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-100px" }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+                className="bg-gray-800/50 p-6 rounded-xl border border-gray-700"
+              >
+                <BrainCircuit className="w-10 h-10 text-purple-400 mx-auto mb-4" />
+                 <div className="text-4xl font-bold text-purple-400 mb-2">
+                  <AnimatedNumber value={10000} />+
+                </div>
+                <p className="text-gray-400">Unique Questions Generated Daily</p>
+              </motion.div>
+               <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-100px" }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="bg-gray-800/50 p-6 rounded-xl border border-gray-700"
+              >
+                <Star className="w-10 h-10 text-yellow-400 mx-auto mb-4" />
+                 <div className="text-4xl font-bold text-yellow-400 mb-2">
+                   <AnimatedNumber value={4.8} />/5
+                 </div>
+                 <p className="text-gray-400">Average User Satisfaction</p>
+              </motion.div>
+            </div>
+          </div>
+
           {/* Testimonials Carousel */}
-          <div className="max-w-4xl mx-auto mt-24 mb-20">
-            <h2 className="text-3xl font-bold text-white text-center mb-12">
+          <div className="max-w-4xl mx-auto py-16 md:py-24">
+            <h2 className="text-3xl md:text-4xl font-bold text-white text-center mb-12">
               Success Stories from Our Users
             </h2>
             
-            <div className="relative bg-gray-800/50 rounded-xl p-8 border border-gray-700">
-              <div className="flex items-center mb-4">
-                <div className="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xl">
-                  {testimonials[currentTestimonial].name.charAt(0)}
-                </div>
-                <div className="ml-4">
-                  <h3 className="text-white font-semibold">{testimonials[currentTestimonial].name}</h3>
-                  <p className="text-gray-400 text-sm">{testimonials[currentTestimonial].role} at {testimonials[currentTestimonial].company}</p>
-                </div>
-                <div className="ml-auto flex">
-                  {[...Array(testimonials[currentTestimonial].rating)].map((_, i) => (
-                    <Star key={i} size={16} className="text-yellow-400 fill-yellow-400" />
-                  ))}
-                </div>
-              </div>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ duration: 0.8 }}
+              className="relative bg-gray-800/50 rounded-xl p-8 border border-gray-700 shadow-lg"
+            >
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentTestimonial}
+                  initial={{ opacity: 0, x: 50 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -50 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  <div className="flex items-center mb-4">
+                    <div className="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xl">
+                      {testimonials[currentTestimonial].name.charAt(0)}
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="text-white font-semibold">{testimonials[currentTestimonial].name}</h3>
+                      <p className="text-gray-400 text-sm">{testimonials[currentTestimonial].role} at {testimonials[currentTestimonial].company}</p>
+                    </div>
+                    <div className="ml-auto flex">
+                      {[...Array(testimonials[currentTestimonial].rating)].map((_, i) => (
+                        <Star key={i} size={16} className="text-yellow-400 fill-yellow-400" />
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <p className="text-gray-300 italic mb-6 text-lg leading-relaxed">"{testimonials[currentTestimonial].text}"</p>
+                </motion.div>
+              </AnimatePresence>
               
-              <p className="text-gray-300 italic mb-6">"{testimonials[currentTestimonial].text}"</p>
-              
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center mt-6">
                 <div className="flex space-x-2">
                   {testimonials.map((_, index) => (
                     <button 
@@ -266,14 +399,14 @@ export default function Home() {
                 
                 <div className="flex space-x-2">
                   <button 
-                    onClick={prevTestimonial}
+                    onClick={() => setCurrentTestimonial((prev) => (prev - 1 + testimonials.length) % testimonials.length)}
                     className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors"
                     aria-label="Previous testimonial"
                   >
                     <ChevronLeft size={18} className="text-white" />
                   </button>
                   <button 
-                    onClick={nextTestimonial}
+                    onClick={() => setCurrentTestimonial((prev) => (prev + 1) % testimonials.length)}
                     className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors"
                     aria-label="Next testimonial"
                   >
@@ -281,52 +414,86 @@ export default function Home() {
                   </button>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
           
           {/* Features Section */}
-          <div className="max-w-6xl mx-auto mt-20 mb-24">
-            <h2 className="text-3xl font-bold text-white text-center mb-12">
-              Key Features
+          <div className="max-w-6xl mx-auto py-20 md:py-28">
+            <h2 className="text-3xl md:text-4xl font-bold text-white text-center mb-16">
+              Why PrepFlashcard Stands Out
             </h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
-                <div className="w-12 h-12 bg-indigo-500/20 rounded-lg flex items-center justify-center mb-4">
-                  <Award className="text-indigo-400 w-6 h-6" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-100px" }}
+                transition={{ duration: 0.5 }}
+                className="bg-gray-800/50 p-6 rounded-xl border border-gray-700 flex flex-col items-center text-center"
+              >
+                <div className="w-14 h-14 bg-indigo-500/20 rounded-lg flex items-center justify-center mb-5">
+                  <Award className="text-indigo-400 w-7 h-7" />
                 </div>
-                <h3 className="text-xl font-semibold text-white mb-3">Expert-Level Questions</h3>
-                <p className="text-gray-400">
-                  Our AI generates questions that match real-world interview scenarios, from entry-level to senior positions, ensuring you're prepared for any challenge.
+                <h3 className="text-xl font-semibold text-white mb-3">Realistic Scenarios</h3>
+                <p className="text-gray-400 text-sm">
+                  AI generates questions mirroring real-world interview challenges for all experience levels.
                 </p>
-              </div>
+              </motion.div>
               
-              <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
-                <div className="w-12 h-12 bg-emerald-500/20 rounded-lg flex items-center justify-center mb-4">
-                  <Users className="text-emerald-400 w-6 h-6" />
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-100px" }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+                className="bg-gray-800/50 p-6 rounded-xl border border-gray-700 flex flex-col items-center text-center"
+              >
+                <div className="w-14 h-14 bg-emerald-500/20 rounded-lg flex items-center justify-center mb-5">
+                  <Users className="text-emerald-400 w-7 h-7" />
                 </div>
-                <h3 className="text-xl font-semibold text-white mb-3">Specialized Content</h3>
-                <p className="text-gray-400">
-                  Questions are tailored to your specific field and sub-specialization, focusing on the knowledge areas most relevant to your career path.
+                <h3 className="text-xl font-semibold text-white mb-3">Deep Specialization</h3>
+                <p className="text-gray-400 text-sm">
+                  Focus on hyper-specific knowledge areas relevant to your exact career path and sub-field.
                 </p>
-              </div>
+              </motion.div>
               
-              <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
-                <div className="w-12 h-12 bg-rose-500/20 rounded-lg flex items-center justify-center mb-4">
-                  <Bookmark className="text-rose-400 w-6 h-6" />
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-100px" }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="bg-gray-800/50 p-6 rounded-xl border border-gray-700 flex flex-col items-center text-center"
+              >
+                <div className="w-14 h-14 bg-rose-500/20 rounded-lg flex items-center justify-center mb-5">
+                  <Bookmark className="text-rose-400 w-7 h-7" />
                 </div>
-                <h3 className="text-xl font-semibold text-white mb-3">Job Description Analysis</h3>
-                <p className="text-gray-400">
-                  Upload your target job description to receive questions specifically designed to prepare you for that particular role and company.
+                <h3 className="text-xl font-semibold text-white mb-3">Job-Targeted Prep</h3>
+                <p className="text-gray-400 text-sm">
+                  Analyze target job descriptions for questions precisely aligned with role requirements.
                 </p>
-              </div>
+              </motion.div>
+
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-100px" }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+                className="bg-gray-800/50 p-6 rounded-xl border border-gray-700 flex flex-col items-center text-center"
+              >
+                <div className="w-14 h-14 bg-purple-500/20 rounded-lg flex items-center justify-center mb-5">
+                  <BrainCircuit className="text-purple-400 w-7 h-7" />
+                </div>
+                <h3 className="text-xl font-semibold text-white mb-3">Intelligent AI</h3>
+                <p className="text-gray-400 text-sm">
+                  Leverages advanced AI models to understand context and generate insightful questions.
+                </p>
+              </motion.div>
             </div>
           </div>
           
           {/* How It Works Section */}
-          <div className="max-w-5xl mx-auto mt-20 mb-24">
-            <h2 className="text-3xl font-bold text-white text-center mb-12">
-              How It Works
+          <div className="max-w-5xl mx-auto py-20 md:py-28">
+            <h2 className="text-3xl md:text-4xl font-bold text-white text-center mb-16">
+              Simple Steps to Interview Success
             </h2>
             
             <div className="relative">
@@ -410,19 +577,35 @@ export default function Home() {
           </div>
           
           {/* CTA Section */}
-          <div className="max-w-4xl mx-auto text-center py-16 mb-16">
-            <h2 className="text-3xl font-bold text-white mb-6">
-              Ready to Ace Your Next Interview?
-            </h2>
-            <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
-              Start preparing now with questions tailored specifically to your field and career goals.
-            </p>
-            <button 
-              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-              className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-8 py-3 rounded-lg font-medium hover:from-purple-700 hover:to-indigo-700 transition-colors"
+          <div className="max-w-4xl mx-auto text-center py-20 md:py-28 mb-16">
+            <motion.h2 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.5 }}
+              transition={{ duration: 0.6 }}
+              className="text-3xl md:text-4xl font-bold text-white mb-6"
             >
-              Get Started
-            </button>
+              Ready to Ace Your Next Interview?
+            </motion.h2>
+            <motion.p 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.5 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto"
+            >
+              Start preparing now with questions tailored specifically to your field and career goals.
+            </motion.p>
+            <motion.button 
+              initial={{ opacity: 0, scale: 0.8 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true, amount: 0.5 }}
+              transition={{ duration: 0.6, delay: 0.2, type: "spring", stiffness: 100 }}
+              onClick={scrollToSelection}
+              className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-10 py-4 rounded-lg font-semibold text-lg hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 shadow-lg shadow-purple-500/30"
+            >
+              Get Started Now
+            </motion.button>
           </div>
         </div>
       </div>
