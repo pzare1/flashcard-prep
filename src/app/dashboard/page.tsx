@@ -12,7 +12,9 @@ import {
   Clock, 
   BrainCircuit,
   SlidersHorizontal,
-  RefreshCw
+  RefreshCw,
+  Linkedin,
+  Sparkles
 } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import PerformanceChart from "../../components/ModernPerformanceChart";
@@ -48,6 +50,9 @@ interface Question {
   }>;
   createdAt: Date;
   lastReviewedAt?: Date;
+  linkedinUrl?: string;
+  jobTitle?: string;
+  jobDescription?: string;
 }
 
 export default function Dashboard() {
@@ -582,6 +587,9 @@ export default function Dashboard() {
                       Score
                     </th>
                     <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Source
+                    </th>
+                    <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">
                       Last Review
                     </th>
                   </tr>
@@ -638,6 +646,19 @@ export default function Dashboard() {
                             return <span className="text-gray-500 text-xs">Not scored</span>;
                           }
                         })()}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-center">
+                        {question.linkedinUrl ? (
+                          <div title="Generated from LinkedIn job post" className="flex items-center justify-center">
+                            <Linkedin className="w-4 h-4 text-blue-400" />
+                          </div>
+                        ) : question.jobTitle || question.jobDescription ? (
+                          <div title="Custom job info" className="flex items-center justify-center">
+                            <Sparkles className="w-4 h-4 text-purple-400" />
+                          </div>
+                        ) : (
+                          <span className="text-gray-500 text-xs">-</span>
+                        )}
                       </td>
                       <td className="px-4 py-4 text-sm text-center text-gray-400">
                         {question.lastReviewedAt ? (

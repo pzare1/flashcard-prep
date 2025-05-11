@@ -1,6 +1,6 @@
 "use client";
 
-import { Dispatch, SetStateAction } from "react";
+import { Dispatch, SetStateAction, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, ChevronRight, Sparkles, Info, BookOpen, Clock } from "lucide-react";
 import { fields } from "../lib/constants";
@@ -22,6 +22,8 @@ interface SelectionPanelProps {
   isLoading: boolean;
   handleBack: () => void;
   handleStart: () => void;
+  linkedinUrl?: string;
+  setLinkedinUrl?: Dispatch<SetStateAction<string>>;
 }
 
 export const SelectionPanel = ({
@@ -38,7 +40,70 @@ export const SelectionPanel = ({
   isLoading,
   handleBack,
   handleStart,
+  linkedinUrl = "",
+  setLinkedinUrl = () => {},
 }: SelectionPanelProps) => {
+  const [fetchingJobDetails, setFetchingJobDetails] = useState(false);
+  const [jobFetchError, setJobFetchError] = useState<string | null>(null);
+
+  const handleFetchJobDetails = async () => {
+    if (!linkedinUrl) {
+      setJobFetchError("Please enter a LinkedIn job URL");
+      return;
+    }
+
+    setFetchingJobDetails(true);
+    setJobFetchError(null);
+
+    try {
+      const response = await fetch("/api/scrape-linkedin-job", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ linkedinUrl }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || data.details || "Failed to fetch job details");
+      }
+
+      if (data.success) {
+        if (data.jobTitle) {
+          setJobTitle(data.jobTitle);
+        }
+        if (data.jobDescription) {
+          setJobDescription(data.jobDescription);
+        }
+        
+        // Show success message with details about what was extracted
+        const extractedItems = [];
+        if (data.jobTitle) extractedItems.push("job title");
+        if (data.company) extractedItems.push("company");
+        if (data.jobDescription) extractedItems.push("job description");
+        
+        const successMessage = extractedItems.length 
+          ? `Successfully imported ${extractedItems.join(", ")}`
+          : "Job data imported successfully";
+          
+        // Display success message (you can adjust this to use a toast or other notification method)
+        setJobFetchError(`✅ ${successMessage}`);
+      } else {
+        throw new Error("Could not extract job details from the provided URL");
+      }
+    } catch (error) {
+      console.error("Error fetching job details:", error);
+      setJobFetchError(error instanceof Error ? error.message : "Failed to fetch job details");
+    } finally {
+      setFetchingJobDetails(false);
+    }
+  };
+
+  // Add a function to check if a message is a success message
+  const isSuccessMessage = (message: string | null) => {
+    return message?.startsWith('✅') || false;
+  };
+
   return (
     <div>
       {/* Header with progress indicator */}
@@ -138,6 +203,41 @@ export const SelectionPanel = ({
             <div className="flex items-center space-x-2 mb-2">
               <BookOpen className="w-4 h-4 text-purple-400" />
               <h3 className="text-gray-300 font-medium">Customize Your Questions</h3>
+            </div>
+            
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">LinkedIn Job URL (Optional)</label>
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  placeholder="Paste LinkedIn job post URL here..."
+                  value={linkedinUrl}
+                  onChange={(e) => setLinkedinUrl(e.target.value)}
+                  className="flex-1 bg-gray-900/50 text-gray-200 rounded-lg p-3
+                         border border-gray-700 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 outline-none"
+                />
+                <button
+                  onClick={handleFetchJobDetails}
+                  disabled={fetchingJobDetails || !linkedinUrl}
+                  className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg 
+                           disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                >
+                  {fetchingJobDetails ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                  ) : (
+                    "Import"
+                  )}
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-1 flex items-start">
+                <Sparkles className="w-3 h-3 mr-1 mt-0.5 text-purple-500" />
+                Import job details directly from a LinkedIn job post URL
+              </p>
+              {jobFetchError && (
+                <p className={`text-xs mt-1 ${isSuccessMessage(jobFetchError) ? 'text-green-400' : 'text-red-400'}`}>
+                  {jobFetchError}
+                </p>
+              )}
             </div>
             
             <div>

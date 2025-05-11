@@ -4,6 +4,7 @@ export interface IQuestion extends Document {
   userId: string;
   jobTitle: string;
   jobDescription: string;
+  linkedinUrl: string;
   field: string;
   subField: string;
   question: string;
@@ -57,6 +58,10 @@ const QuestionSchema = new Schema({
     required: false
   },
   jobDescription: {
+    type: String,
+    required: false
+  },
+  linkedinUrl: {
     type: String,
     required: false
   },

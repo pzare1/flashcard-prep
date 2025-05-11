@@ -94,6 +94,7 @@ export default function Home() {
   const [questionCount, setQuestionCount] = useState(10);
   const [jobTitle, setJobTitle] = useState("");
   const [jobDescription, setJobDescription] = useState("");
+  const [linkedinUrl, setLinkedinUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
@@ -141,7 +142,8 @@ export default function Home() {
           count: questionCount,
           jobTitle: jobTitle.trim(),
           jobDescription: jobDescription.trim(),
-          groupName: groupName.trim() || `${selectedField} - ${selectedSubField} Questions`
+          groupName: groupName.trim() || `${selectedField} - ${selectedSubField} Questions`,
+          linkedinUrl: linkedinUrl.trim()
         }),
       });
   
@@ -170,7 +172,7 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedField, selectedSubField, questionCount, jobTitle, jobDescription, groupName, isSignedIn, router, validateSelections]);
+  }, [selectedField, selectedSubField, questionCount, jobTitle, jobDescription, linkedinUrl, groupName, isSignedIn, router, validateSelections]);
 
   const handleFieldSelect = useCallback((field: string) => {
     setSelectedField(field);
@@ -288,6 +290,8 @@ export default function Home() {
                     setJobTitle={setJobTitle}
                     jobDescription={jobDescription}
                     setJobDescription={setJobDescription}
+                    linkedinUrl={linkedinUrl}
+                    setLinkedinUrl={setLinkedinUrl}
                     error={error}
                     isLoading={isLoading}
                     handleBack={handleBack}

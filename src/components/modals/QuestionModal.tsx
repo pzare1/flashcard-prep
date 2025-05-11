@@ -19,7 +19,9 @@ import {
   Book,
   ThumbsUp,
   Eye,
-  Clock
+  Clock,
+  Briefcase,
+  Linkedin
 } from "lucide-react";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
@@ -71,6 +73,9 @@ interface QuestionModalProps {
     notes?: Note[];
     attempts?: Attempt[];
     averageScore?: number;
+    jobTitle?: string;
+    jobDescription?: string;
+    linkedinUrl?: string;
   };
   onSave: (questionId: string, data: { answer?: string; notes?: Note[] }) => void;
 }
@@ -81,7 +86,7 @@ export function QuestionModal({ isOpen, onClose, question, onSave }: QuestionMod
   const [notes, setNotes] = useState<Note[]>(question.notes || []);
   const [newNote, setNewNote] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'answer' | 'notes' | 'feedback'>('answer');
+  const [activeTab, setActiveTab] = useState<'answer' | 'notes' | 'feedback' | 'job-details'>('answer');
   const [selectedAttempt, setSelectedAttempt] = useState<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const noteInputRef = useRef<HTMLInputElement>(null);
@@ -459,6 +464,21 @@ export function QuestionModal({ isOpen, onClose, question, onSave }: QuestionMod
                 Feedback {question.attempts && question.attempts.length > 0 && `(${question.attempts.length})`}
               </button>
               
+              {/* Add job details tab if applicable */}
+              {(question.jobTitle || question.jobDescription || question.linkedinUrl) && (
+                <button
+                  onClick={() => setActiveTab('job-details')}
+                  className={`flex items-center px-4 py-2 rounded-t-lg transition-colors ${
+                    activeTab === 'job-details'
+                      ? 'bg-gray-800 text-purple-400 border-t border-l border-r border-purple-500/30'
+                      : 'text-gray-400 hover:text-gray-300'
+                  }`}
+                >
+                  <Briefcase className="w-4 h-4 mr-2" />
+                  <span>Job Details</span>
+                </button>
+              )}
+              
               {/* Close button */}
               <button
                 onClick={onClose}
@@ -598,10 +618,67 @@ export function QuestionModal({ isOpen, onClose, question, onSave }: QuestionMod
                     )}
                   </AnimatePresence>
                 </div>
-              ) : (
+              ) : activeTab === 'feedback' ? (
                 /* Feedback section */
                 <div>
                   {renderFeedbackSection()}
+                </div>
+              ) : (
+                /* Job details tab */
+                <div className="space-y-6">
+                  {question.jobTitle && (
+                    <div>
+                      <h3 className="text-gray-300 flex items-center mb-2 font-medium">
+                        <Briefcase className="w-4 h-4 mr-2 text-blue-400" />
+                        Job Title
+                      </h3>
+                      <div className="bg-gray-700/50 rounded-lg p-4 text-gray-200">
+                        {question.jobTitle}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {question.linkedinUrl && (
+                    <div>
+                      <h3 className="text-gray-300 flex items-center mb-2 font-medium">
+                        <Linkedin className="w-4 h-4 mr-2 text-blue-400" />
+                        LinkedIn Job Post
+                      </h3>
+                      <div className="bg-gray-700/50 rounded-lg p-4 text-blue-300 hover:text-blue-200 transition-colors">
+                        <a href={question.linkedinUrl} target="_blank" rel="noopener noreferrer" className="flex items-center">
+                          <Linkedin className="w-4 h-4 mr-2" />
+                          {question.linkedinUrl.length > 60 
+                            ? question.linkedinUrl.substring(0, 60) + '...' 
+                            : question.linkedinUrl}
+                          <svg className="w-4 h-4 ml-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {question.jobDescription && (
+                    <div>
+                      <h3 className="text-gray-300 flex items-center mb-2 font-medium">
+                        <Book className="w-4 h-4 mr-2 text-purple-400" />
+                        Job Description
+                      </h3>
+                      <div className="bg-gray-700/50 rounded-lg p-4 text-gray-200 max-h-80 overflow-y-auto whitespace-pre-wrap">
+                        {question.jobDescription}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {!question.jobTitle && !question.jobDescription && !question.linkedinUrl && (
+                    <div className="text-center py-10">
+                      <Briefcase className="w-16 h-16 text-gray-700 mx-auto mb-4" />
+                      <h4 className="text-xl text-gray-400 mb-2">No Job Details</h4>
+                      <p className="text-gray-500 max-w-md mx-auto">
+                        This question doesn't have any associated job details.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     console.log("Received request body:", body); // Debug log
 
-    const { field, subField, count = 5, jobTitle = "", jobDescription = "" } = body;
+    const { field, subField, count = 5, jobTitle = "", jobDescription = "", linkedinUrl = "" } = body;
 
     // 3. Validate inputs
     if (!field || !subField) {
@@ -148,18 +148,37 @@ export async function POST(request: NextRequest) {
     // 8. Generate questions
     let completion;
     try {
+      let jobContent = "";
+      if (jobTitle || jobDescription) {
+        jobContent = `Consider this context:
+          Job Title: ${jobTitle}
+          Job Description: ${jobDescription}`;
+      }
+      
+      if (linkedinUrl) {
+        jobContent += jobContent ? "\nLinkedIn Job URL: " + linkedinUrl : `Consider the job posting from this LinkedIn URL: ${linkedinUrl}`;
+      }
+
       completion = await groq.chat.completions.create({
         messages: [
           {
             role: "system",
-            content: "You are an expert interview question generator specializing in creating detailed questions with comprehensive answers. Format your response as valid JSON."
+            content: "You are an expert interview question generator specializing in creating detailed questions with comprehensive answers for technical interviews. Your questions should closely match the skills and requirements mentioned in any job descriptions provided. Format your response as valid JSON."
           },
           {
             role: "user",
             content: `Generate EXACTLY ${validCount} interview questions for ${field} specifically focusing on ${subField}.
-              ${jobTitle || jobDescription ? `Consider this context:
-                Job Title: ${jobTitle}
-                Job Description: ${jobDescription}` : ''}
+              ${jobContent ? `
+              ===== JOB DETAILS =====
+              ${jobContent}
+              =====
+              
+              When generating questions, closely analyze the job details above and create questions that:
+              1. Target the specific technical skills mentioned in the job description
+              2. Cover the required experience levels and technologies
+              3. Include scenario-based questions relevant to the role
+              4. Match the seniority level indicated by the job title and description` : ''}
+              
               Return in this exact JSON format:
               {
                 "questions": [
@@ -174,7 +193,8 @@ export async function POST(request: NextRequest) {
               1. EXACTLY ${validCount} questions
               2. Valid JSON format
               3. All fields present
-              4. Mix of difficulty levels (beginner/intermediate/advanced)`
+              4. Mix of difficulty levels (beginner/intermediate/advanced)
+              5. Questions relevant to the job details (when provided)`
           }
         ],
         model: "llama3-70b-8192",
@@ -229,7 +249,10 @@ export async function POST(request: NextRequest) {
             timesAnswered: 0,
             averageScore: 0,
             scores: [],
-            attempts: []
+            attempts: [],
+            jobTitle: jobTitle.trim(),
+            jobDescription: jobDescription.trim(),
+            linkedinUrl: linkedinUrl.trim()
           });
           return await question.save();
         })
