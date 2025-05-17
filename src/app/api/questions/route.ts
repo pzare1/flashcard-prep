@@ -5,7 +5,7 @@ import { auth } from "@clerk/nextjs/server";
 
 export async function GET(request: NextRequest) {
   try {
-    // Get the current user ID from auth
+  
     const { userId } = await auth();
     
     const { searchParams } = new URL(request.url);
